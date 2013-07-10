@@ -14,6 +14,7 @@ function SOSLasso_classify(modelInfo)
 %   Nikhil Rao, Christopher Cox, Robert Nowak, Timothy Rogers 
 %   Date: 2013/07/08
 
+tic;
 disp(modelInfo.cv);
 if ( modelInfo.cv < 1 || modelInfo.cv > 9 )
     error('cv should be an integer from 1-9 \n');
@@ -26,7 +27,13 @@ catch ME
     DataDir = pwd;
 end 
 
-tic;
+%% algorithm parameters SHOULD BE MOVED TO THE modelInfo.
+try
+    lamset    = modelInfo.lamset;
+catch ME
+    lamset    = 2.^[-10:2];
+    warning('No lambda set specified in modelInfo: using %f\n',lamset);
+end
 cv            = modelInfo.cv;                   %    1x1  double
 classify      = modelInfo.classify;             %    1x1  double
 whatmethod    = modelInfo.ClassificationMethod; %    1x1  double
@@ -58,6 +65,19 @@ case 'ani-art'
     Blocks = Blocks(~Ambiguous & Words,:);      %  235x10 logical
     y      = TrueAnimals(~Ambiguous & Words);   %  235x1  logical
 end
+[ST,I] = dbstack();
+Params.CallerFunction=ST.file;
+Params.StartDate = StartDate;
+Params.Task = Task;
+Params.classify = classify;
+Params.whatmethod = whatmethod;
+Params.y = y;
+Params.cv = cv;
+Params.lamset = lamset;
+Params.nums = nums;
+Params.Ambiguous = Ambiguous;
+Params.Words = Words;
+Params.Blocks = Blocks;
 
 N          = length(nums);
 cv_set     = Blocks(:,cv);
@@ -100,8 +120,6 @@ clear Xtemp;
 fprintf('data loaded (and mean centered) \n'); toc;
 fprintf('training and test sets created \n')
 
-%% algorithm parameters SHOULD BE MOVED TO THE modelInfo.
-lamset = 2.^[-10:2];
 lamerrs = zeros(length(lamset),1); %we will store the errors here
 
 toc;
@@ -171,7 +189,7 @@ end
 if ~exist(ResultsDir,'dir')
     mkdir ResultsDir
 end
-save(fullfile(ResultsDir,ResultsFile),'BetaHat','lamerrs','lamset');
+save(fullfile(ResultsDir,ResultsFile),'BetaHat','lamerrs','lamset','Params');
 fprintf('DATA SAVED TO %s.\n',fullfile(ResultsDir,ResultsFile));
 fprintf('whos(''-file'',%s\n',fullfile(ResultsDir,ResultsFile));
 whos('-file',fullfile(ResultsDir,ResultsFile))
