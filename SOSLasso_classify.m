@@ -36,7 +36,13 @@ Blocks        = modelInfo.Blocks;               % 1200x10 logical
 TrueAnimals   = modelInfo.TrueAnimals;          % 1200x1  logical
 TrueArtifacts = modelInfo.TrueAnimals;          % 1200x1  logical
 Task          = modelInfo.ClassificationTask;   %         char 
-                                                % (ani-all,art-all,ani-art)  
+StartDate     = modelInfo.StartDate;            %         char 
+
+ResultsDir    = fullfile(DataDir,sprintf('%s_%s_method-%d',StartDate,Task,whatmethod));
+LambdaErrFile = fullfile(ResultsDir,sprintf('lambdaErr_%s_%d_%d.mat',Task,whatmethod,cv));
+BetahatFile   = fullfile(ResultsDir,sprintf('betaHat_%s_%d_%d.mat',Task,whatmethod,cv));
+
+% (ani-all,art-all,ani-art)  
 switch Task
 case 'ani-all'
     Words  = [true(900,1);false(300,1)];        % 1200x1  logical
@@ -107,6 +113,7 @@ toc;
 fprintf('matrix replicated \n'); toc;
 
 %% iterate over all lambdas
+Betahat = cell(length(lamset),1);
 for lamind = 1:length(lamset);
 
     lam = lamset(lamind);
@@ -114,30 +121,30 @@ for lamind = 1:length(lamset);
     switch whatmethod
         case 1 %lasso
             if classify==1
-                [Betahat,~,~] = Logistic_Lasso(trainX, trainY, lam);
+                [Betahat{lamind},~,~] = Logistic_Lasso(trainX, trainY, lam);
             else
-                [Betahat,~] = Least_Lasso(trainX, trainY, lam);
+                [Betahat{lamind},~] = Least_Lasso(trainX, trainY, lam);
             end
 
         case 2
             if classify==1
-                [Betahat,~,~] = Logistic_L21(trainX, trainY, lam);
+                [Betahat{lamind},~,~] = Logistic_L21(trainX, trainY, lam);
             else
-                [Betahat,~] = Least_L21(trainX, trainY, lam);
+                [Betahat{lamind},~] = Least_L21(trainX, trainY, lam);
             end
         case 3
             % lam is the regularizer, rho = reg. for L1 term
             if classify==1
-                [Betahat,~] = overlap_2stage(1,trainY,Xo,trainX,G,group_arr,groups,lam);
+                [Betahat{lamind},~] = overlap_2stage(1,trainY,Xo,trainX,G,group_arr,groups,lam);
             else
-                [Betahat,~] = overlap_2stage(0,trainY,Xo,trainX,G,group_arr,lam);
+                [Betahat{lamind},~] = overlap_2stage(0,trainY,Xo,trainX,G,group_arr,lam);
             end
 
         case 4
             if classify==1
-                [Betahat,~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
+                [Betahat{lamind},~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
             else
-                [Betahat,~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
+                [Betahat{lamind},~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
             end
 
         otherwise
@@ -151,17 +158,21 @@ for lamind = 1:length(lamset);
     a = cell2mat(testY);
     clear b;
     for person = 1:numpersons
-        B = Betahat(:,person);
-        x_for_err = testX{person};
-        b(:,person) = sign(x_for_err*B);
+        B = Betahat{lamind}(:,person);
+        b(:,person) = sign(testX{person}*B);
     end
     b = b(:);
-    L = length(a);err = 0;
-    for l = 1:L
-        err = err + (sign(a(l))~=sign(b(l)));
-    end
+    lamerrs(lamind) = sum(~eq(a>0,b>0));
 
-    lamerrs(lamind) = err;
-
+    % Store current cv Betahats as sparse matrix.
+    Betahat{lamind} = sparse(Betahat{lamind});
     fprintf(2,'validation done: lambda = %f \n', lam); toc
 end
+
+if ~exist(ResultsDir,'dir')
+    mkdir ResultsDir
+end
+save(fullfile(ResultsDir,ResultsFile),'BetaHat','lamerrs','lamset');
+fprintf('DATA SAVED TO %s.\n',fullfile(ResultsDir,ResultsFile));
+fprintf('whos(''-file'',%s\n',fullfile(ResultsDir,ResultsFile));
+whos('-file',fullfile(ResultsDir,ResultsFile))
