@@ -36,13 +36,12 @@ Blocks        = modelInfo.Blocks;               % 1200x10 logical
 TrueAnimals   = modelInfo.TrueAnimals;          % 1200x1  logical
 TrueArtifacts = modelInfo.TrueAnimals;          % 1200x1  logical
 Task          = modelInfo.ClassificationTask;   %         char 
+                                                % (ani-all,art-all,ani-art)  
 StartDate     = modelInfo.StartDate;            %         char 
 
 ResultsDir    = fullfile(DataDir,sprintf('%s_%s_method-%d',StartDate,Task,whatmethod));
-LambdaErrFile = fullfile(ResultsDir,sprintf('lambdaErr_%s_%d_%d.mat',Task,whatmethod,cv));
-BetahatFile   = fullfile(ResultsDir,sprintf('betaHat_%s_%d_%d.mat',Task,whatmethod,cv));
+ResultsFile   = fullfile(ResultsDir,sprintf('classify_%s_%d_%d.mat',Task,whatmethod,cv));
 
-% (ani-all,art-all,ani-art)  
 switch Task
 case 'ani-all'
     Words  = [true(900,1);false(300,1)];        % 1200x1  logical
