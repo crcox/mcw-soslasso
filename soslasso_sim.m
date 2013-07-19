@@ -141,17 +141,17 @@ switch DataType
             end
         end
         
-    case 'Identical Sparse Groups'
+    case 'Identical Sparse Groups' % Not implemented 
         temp = uint16(randperm(V,W));
         for i=1:P
             active_voxels(i,:) = temp;
             X(i,active_voxels(i,:)) = 1;
         end  
 end
-for i=1:6
-   subplot(2,3,i);
-   imagesc(X{i})
-end
+% for i=1:6
+%    subplot(2,3,i);
+%    imagesc(X{i})
+% end
 
 %% Identify active voxels by subject
 ActiveVoxels = cellfun(@any,X,'Unif',0);
@@ -210,10 +210,11 @@ Y(:) = deal({y});
 
 %% SOSLasso
 [Betahat.soslasso,C.soslasso] = overlap_2stage(1,Y,R,X_noise,G,group_arr,groups,lam);
+DiscVox.soslasso = any(logical(Betahat.lasso),2);
 
 %% Lasso
 [Betahat.lasso,C.soslasso,~] = Logistic_Lasso(X_noise, Y, lam);
-
+DiscVox.lasso = any(logical(Betahat.lasso),2);
 
 %% Univarite (FDR corrected)
 [MEAN_A, MEAN_B, p_individual,h_individual] = deal(zeros(P,N));
@@ -222,14 +223,16 @@ for i=1:P
     b = X_noise{i}(idivide(T,2,'floor')+1:end,:);
     [~,p_individual(i,:)] = ttest2(a,b);
     h_individual(i,:) = fdr_bh(p_individual(i,:));
-    tabulate(h_individual(i,:));
     MEAN_A(i,:) = mean(a);
     MEAN_B(i,:) = mean(b);
 end
 [~,p] = ttest2(MEAN_A,MEAN_B);
 [hh,crit_p,adj_p] = fdr_bh(p);
-tabulate(hh)
+DiscVox.univariate = logical(hh);
 
+[DPrime.soslasso,Counts.soslasso] = dprime(ACTIVES,DiscVox.soslasso);
+[DPrime.lasso,Counts.lasso] = dprime(ACTIVES,DiscVox.lasso);
+[DPrime.univariate,Counts.univariate] = dprime(ACTIVES,DiscVox.univariate);
 
 % In citing MALSAR in your papers, you can use the following:
 % [Zhou 2012] J. Zhou, J. Chen and J. Ye. MALSAR: Multi-tAsk Learning via 
