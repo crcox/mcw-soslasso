@@ -15,7 +15,19 @@ function [DPrime, Counts] = soslasso_sim(sigma, lam, DataTypeInd)
 %    6 Identical Sparse Groups
 
 %% Specify Simulation environment
-DataType = 'Shifted Sparse Groups';
+if DataTypeInd == 1 
+	DataType = 'Same Sparse Groups';
+elseif DataTypeInd == 2 
+	DataType = 'Shifted Sparse Groups';
+elseif DataTypeInd == 3 
+	DataType = 'Different Sparse Groups';
+elseif DataTypeInd == 4 
+	DataType = 'Identical No Groups';
+elseif DataTypeInd == 5 
+	DataType = 'Different No Groups';
+elseif DataTypeInd == 6 
+	DataType = 'Identical Sparse Groups';
+end
 
 P = uint16(16);     % number of people
 N = uint16(1024);   % number of voxels
