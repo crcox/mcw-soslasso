@@ -1,4 +1,4 @@
-clear;clc;
+function [DPrime, Counts] = soslasso_sim(lam)
 %% Specify Simulation environment
 DataType = 'Shifted Sparse Groups';
 
@@ -202,7 +202,7 @@ for i=2:P
         R{i}(:,a:b) = X_noise{i}(:,temp);
     end
 end
-lam = 0.1;
+% lam = 0.001;
 Y = cell(P,1);
 Y(:) = deal({y});
 
