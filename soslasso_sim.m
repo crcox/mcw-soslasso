@@ -1,4 +1,19 @@
-function [DPrime, Counts] = soslasso_sim(lam)
+function [DPrime, Counts] = soslasso_sim(sigma, lam, DataTypeInd)
+%  SOSLASSO_SIM Simulate different data with different structures, 
+%    bury it in Gaussian noise, and recover using soslasso, lasso,
+%    and univariate method.
+%
+%  USAGE:
+%    [DPrime, Counts] = soslasso_sim(sigma, lam, DataTypeInd);
+%
+%    Key to Data Types:
+%    1 Same Sparse Groups
+%    2 Shifted Sparse Groups
+%    3 Different Sparse Groups
+%    4 Identical No Groups
+%    5 Different No Groups
+%    6 Identical Sparse Groups
+
 %% Specify Simulation environment
 DataType = 'Shifted Sparse Groups';
 
@@ -158,7 +173,7 @@ ActiveVoxels = cellfun(@any,X,'Unif',0);
 ACTIVES = ascolumn(any(cell2mat(ActiveVoxels)));
 
 %% Add gaussian noise
-sigma = 0.05;
+% sigma = 0.05;
 X_noise = cell(P,1);
 for i=1:P
     X_noise{i} = X{i} + (randn(size(X{i}))*sigma);
