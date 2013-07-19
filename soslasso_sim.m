@@ -210,11 +210,11 @@ Y(:) = deal({y});
 
 %% SOSLasso
 [Betahat.soslasso,C.soslasso] = overlap_2stage(1,Y,R,X_noise,G,group_arr,groups,lam);
-DiscVox.soslasso = any(logical(Betahat.soslasso),2);
+DiscVox.soslasso = any(abs(Betahat.soslasso)>0,2);
 
 %% Lasso
 [Betahat.lasso,C.soslasso,~] = Logistic_Lasso(X_noise, Y, lam);
-DiscVox.lasso = any(logical(Betahat.lasso),2);
+DiscVox.lasso = any(abs(Betahat.lasso)>0,2);
 
 %% Univarite (FDR corrected)
 [MEAN_A, MEAN_B, p_individual,h_individual] = deal(zeros(P,N));
