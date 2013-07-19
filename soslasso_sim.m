@@ -210,7 +210,7 @@ Y(:) = deal({y});
 
 %% SOSLasso
 [Betahat.soslasso,C.soslasso] = overlap_2stage(1,Y,R,X_noise,G,group_arr,groups,lam);
-DiscVox.soslasso = any(logical(Betahat.lasso),2);
+DiscVox.soslasso = any(logical(Betahat.soslasso),2);
 
 %% Lasso
 [Betahat.lasso,C.soslasso,~] = Logistic_Lasso(X_noise, Y, lam);
