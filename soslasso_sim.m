@@ -155,7 +155,7 @@ end
 
 %% Identify active voxels by subject
 ActiveVoxels = cellfun(@any,X,'Unif',0);
-ACTIVES = any(cell2mat(ActiveVoxels));
+ACTIVES = ascolumn(any(cell2mat(ActiveVoxels)));
 
 %% Add gaussian noise
 sigma = 0.05;
@@ -210,11 +210,11 @@ Y(:) = deal({y});
 
 %% SOSLasso
 [Betahat.soslasso,C.soslasso] = overlap_2stage(1,Y,R,X_noise,G,group_arr,groups,lam);
-DiscVox.soslasso = any(abs(Betahat.soslasso)>0,2);
+DiscVox.soslasso = ascolumn(any(abs(Betahat.soslasso)>0,2));
 
 %% Lasso
 [Betahat.lasso,C.soslasso,~] = Logistic_Lasso(X_noise, Y, lam);
-DiscVox.lasso = any(abs(Betahat.lasso)>0,2);
+DiscVox.lasso = ascolumn(any(abs(Betahat.lasso)>0,2));
 
 %% Univarite (FDR corrected)
 [MEAN_A, MEAN_B, p_individual,h_individual] = deal(zeros(P,N));
@@ -228,7 +228,7 @@ for i=1:P
 end
 [~,p] = ttest2(MEAN_A,MEAN_B);
 [hh,crit_p,adj_p] = fdr_bh(p);
-DiscVox.univariate = logical(hh);
+DiscVox.univariate = ascolumn(logical(hh));
 
 [DPrime.soslasso,Counts.soslasso] = dprime(ACTIVES,DiscVox.soslasso);
 [DPrime.lasso,Counts.lasso] = dprime(ACTIVES,DiscVox.lasso);
