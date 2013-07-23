@@ -30,13 +30,14 @@ if nargin == 0
     simparams.nactvoxels = uint16(8);   % number of active voxels per trial
     simparams.DataTypeInd = uint16(1);  % See help.
     return
-else
-    simparams = varargin{1};
 end
 if nargin > 1
     VERBOSE = true;
+else
+	VERBOSE = false;
 end
 
+simparams = varargin{1};
 if simparams.DataTypeInd == 1 
 	simparams.DataType = 'Same Sparse Groups';
 elseif simparams.DataTypeInd == 2 
