@@ -1,6 +1,31 @@
-function simdata = soslasso_sim_makesimdata(X,simparams,varargin)
+function simdata = soslasso_sim_makesimdata(X,G,sigma,varargin)
+%  SOSLASSO_SIM_SETUP Setup a simulation experiment and create a data
+%  template.
+%
+%  USAGE:
+%    simparams = SOSLASSO_SIM_SETUP() Returns default simparams structure, 
+%    which can be modified and passed back into the function.
+%
+%    [simparams, X, G] = SOSLASSO_SIM_SETUP(simparams) Using the information 
+%    in simparams, generate the data template and group assignments, and log 
+%    additional information in simparams.
+%    
+%    [...] = SOSLASSO_SIM_SETUP(simparams,'verbose') Same as above, but 
+%    print plots and other useful information to the screen.
 
-if nargin > 2
+if nargin == 0
+    simparams.nsubjects = uint16(16);	% number of subjects
+    simparams.nvoxels = uint16(1024);   % number of voxels
+    simparams.groupsize = uint16(64);	% group size
+    simparams.groupspace = uint16(4);   % group space
+    simparams.ntrials = uint16(64);     % number of trials
+    simparams.nactgroups = uint16(4);   % number of active groups
+    simparams.nactvoxels = uint16(8);   % number of active voxels per trial
+    simparams.DataTypeInd = uint16(1);  % See help.
+    return
+end
+
+if nargin > 3
     if islogical(varargin{1})
         VERBOSE = varargin{1};
     else
@@ -10,79 +35,46 @@ else
     VERBOSE = false;
 end
 
-fields = fieldnames(simparams);
-for i = 1:length(fields);
-    sprintf('%s = simparams.%s',fields{[i i]});
-end
+%% Extract parameters
+P = length(X);
+[T,N] = size(X{1});
+K = length(G);
+M = length(G{1});
+L = G{2}(1) - G{1}(1);
 
 %% Add gaussian noise
-% sigma = 0.05;
 X_noise = cell(P,1);
-for i=1:P
-    X_noise{i} = X{i} + (randn(size(X{i}))*sigma);
+for i=1:length(X)
+    X_noise{i} = X{i} + (randn(T,N)*sigma);
 end
-% for i=1:6
-%    subplot(2,3,i);
-%    imagesc(X_noise{i})
-% end
 
 %% Replicate (for SOS Lasso)
-R = cell(P,1);
-R(:) = deal({zeros(T,M*K)});
 allvox = 1:N;
+replication_index = cell2mat(G);
 groups = repmat(uint16(0), M*K, 1);
 group_arr = repmat(N+1,K,M);
 
-% First loop
-for i=1
-    a = 0; %#ok
-    b = 0;
-    ii = 0;
-    for j=1:K % number of groups
-        temp = ismember(allvox,G{j});
-        group_arr(j,1:sum(temp)) = (ii+1):(ii+sum(temp));
-        ii = ii + sum(temp);
-        a = b + 1;
-        b = (a + sum(temp)) - 1;
-        R{i}(:,a:b) = X_noise{i}(:,temp);
-        groups(a:b) = j;
-    end
-end
-
-% Remaining loops
-for i=2:P
-    a = 0; %#ok
-    b = 0;
-    for j=1:K % number of groups
-        temp = ismember(allvox,G{j});
-        a = b + 1;
-        b = (a + sum(temp)) - 1;
-        R{i}(:,a:b) = X_noise{i}(:,temp);
-    end
+a = 0; %#ok
+b = 0;
+ii = 0;
+for j=1:K % number of groups
+	group_arr(j,1:sum(temp)) = (ii+1):(ii+sum(temp));
+	ii = ii + sum(temp);
+	a = b + 1;
+	b = (a + sum(temp)) - 1;
+	groups(a:b) = j;
 end
 
 Y = cell(P,1);
+y = [ones(idivide(T,2,'floor'),1),-ones(idivide(T,2,'ceil'),1)];
 Y(:) = deal({y});
 
-[Xo,gs,ga]= makeA_multitask_efficient(X_noise,G'); % This just allows me to confirm that Nikhil and I are on the same page.
-for i=1:P
-    if ~all(all(Xo{i}==R{i}))
-        error('soslasso_sim:Something is wrong with cell array R.')
-    end
-end
-
-if ~all(groups==gs)
-    error('soslasso_sim:Something is wrong with vector groups.')
-end
-
-if ~all(all(group_arr==ga))
-    error('soslasso_sim:Something is wrong with matrix group_arr.')
-end
-
 simdata.Y = Y;
+simdata.G = G;
 simdata.X = X;
 simdata.X_noise;
-simdata.R = R;
-simdata.G = G;
+simdata.replication_index = replication_index;
 simdata.groups = groups;
 simdata.group_arr;
+simdata.sigma = sigma;
+simdata.Date = date;
