@@ -1,4 +1,4 @@
-function [simresults] = soslasso_sim_recoversignal(simdata,lamda,varargin)
+function [DPrime,Counts,DiscVox,Betahat] = soslasso_sim_recoversignal(simdata,lambda,varargin)
 
 if nargin > 2
     if islogical(varargin{1})
@@ -11,53 +11,79 @@ else
 end
 
 %% Identify active voxels by subject
-ActiveVoxels = cellfun(@any,simdata.X,'Unif',0);
-ACTIVES = ascolumn(any(cell2mat(ActiveVoxels)));
+ActiveVoxels = cellfun(@any,simdata.X_truth,'Unif',0);
+temp = any(cell2mat(ActiveVoxels));
+if isrow(temp)
+    ACTIVES = temp';
+else
+    ACTIVES = temp;
+end
 ActiveVoxels = cellfun(@transpose,ActiveVoxels,'Unif',0)';
 
 % implement cross validation
 % think about how to store data
 % separate structures for final solutions and CV solutions.
 
-P = length(X);
-[T,N] = size(X{i});
-K = length(G);
-M = length(G{1});
-L = G{2}(1) - G{1}(1);
-test = false(T,1);
-test(1:5:T) = true;
-train = ~test;
+P = uint32(length(simdata.X));
+T = uint32(size(simdata.X{1},1));
+N = uint32(size(simdata.X{1},2));
+K = uint32(length(simdata.G));
+M = uint32(length(simdata.G{1}));
+L = simdata.G{2}(1) - simdata.G{1}(1);
 
-for i = 1:length(lamda)
-	%% SOSLasso
-	[Betahat.soslasso,C.soslasso] = overlap_2stage(1,Y,R,X_noise,G,group_arr,groups,lam,train);
-	DiscVox.soslasso_overall = ascolumn(any(abs(Betahat.soslasso)>0,2));
-	DiscVox.soslasso = abs(Betahat.soslasso)>0;
-	[DPrime.soslasso,Counts.soslasso] = dprime(cell2mat(ActiveVoxels),DiscVox.soslasso);
-	[DPrime.soslasso_overall,Counts.soslasso_overall] = dprime(ACTIVES,DiscVox.soslasso_overall);
+%% SOSLasso
+[Betahat.soslasso,C.soslasso] = overlap_2stage(1,...
+    simdata.Y,...
+    simdata.X,...
+    simdata.G,...
+    simdata.RepIndex,...
+    simdata.group_arr,...
+    simdata.groups,...
+    lambda);
+temp = any(abs(Betahat.soslasso)>0,2);
+if isrow(temp)
+    DiscVox.soslasso_overall = temp';
+else
+    DiscVox.soslasso_overall = temp;
+end
+DiscVox.soslasso = abs(Betahat.soslasso)>0;
+[DPrime.soslasso,Counts.soslasso] = dprime(cell2mat(ActiveVoxels),DiscVox.soslasso);
+[DPrime.soslasso_overall,Counts.soslasso_overall] = dprime(ACTIVES,DiscVox.soslasso_overall);
 
-	%% Lasso
-	[Betahat.lasso,C.soslasso,~] = Logistic_Lasso(X_noise, Y, lam,train);
-	DiscVox.lasso_overall = ascolumn(any(abs(Betahat.lasso)>0,2));
-	DiscVox.lasso = abs(Betahat.lasso)>0;
-	[DPrime.lasso,Counts.lasso] = dprime(cell2mat(ActiveVoxels),DiscVox.lasso);
-	[DPrime.lasso_overall,Counts.lasso_overall] = dprime(ACTIVES,DiscVox.lasso_overall);
-end	
+%% Lasso
+[Betahat.lasso,C.soslasso,~] = Logistic_Lasso(...
+    simdata.X,...
+    simdata.Y,...
+    lambda);
+temp = any(abs(Betahat.lasso)>0,2);
+if isrow(temp)
+    DiscVox.lasso_overall = temp';
+else
+    DiscVox.lasso_overall = temp;
+end
+DiscVox.lasso = abs(Betahat.lasso)>0;
+[DPrime.lasso,Counts.lasso] = dprime(cell2mat(ActiveVoxels),DiscVox.lasso);
+[DPrime.lasso_overall,Counts.lasso_overall] = dprime(ACTIVES,DiscVox.lasso_overall);
 
 %% Univarite (FDR corrected)
 [MEAN_A, MEAN_B] = deal(zeros(P,N));
 [p_individual,h_individual] = deal(zeros(N,P));
 for i=1:P
-    a = X_noise{i}(1:idivide(T,2,'floor'),:);
-    b = X_noise{i}(idivide(T,2,'floor')+1:end,:);
-    [~,p_individual(:,i)] = ttest2(a,b);
+    a = simdata.X{i}(1:idivide(T,2,'floor'),:);
+    b = simdata.X{i}(idivide(T,2,'floor')+1:end,:);
+    [~,p_individual(:,i),~,stats] = ttest2(a,b);
     h_individual(:,i) = fdr_bh(p_individual(:,i));
     MEAN_A(i,:) = mean(a);
     MEAN_B(i,:) = mean(b);
 end
 [~,p] = ttest2(MEAN_A,MEAN_B);
 [hh,~,~] = fdr_bh(p);
-DiscVox.univariate_overall = ascolumn(logical(hh));
+temp = logical(hh);
+if isrow(temp)
+    DiscVox.univariate_overall = temp';
+else
+    DiscVox.univariate_overall = temp;
+end
 DiscVox.univariate = abs(h_individual)>0;
 
 %% Compute 
@@ -70,7 +96,7 @@ DiscVox.univariate = abs(h_individual)>0;
 
 [DPrime.univariate_overall,Counts.univariate_overall] = dprime(ACTIVES,DiscVox.univariate_overall);
 
-% Print mean results.
+% Print mean results
 if VERBOSE
     structfun(@mean,DPrime,'Unif',0)
 end

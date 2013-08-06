@@ -1,4 +1,4 @@
-function [Xhat,C] = overlap_1stage(loss,Y,Xo,X,G,group_arr,lambda)
+function [Xhat,C] = overlap_1stage(loss,Y,X,G,RepIndex,group_arr,lambda)
 
 % function to perform the overlapping SGL optimization, with both LS and LOGIT loss
 % INPUTS
@@ -17,7 +17,7 @@ function [Xhat,C] = overlap_1stage(loss,Y,Xo,X,G,group_arr,lambda)
 %
 % Nikhil Rao
 % 3/17/13
-
+Xo = X(:,RepIndex);
 if loss == 1
     [W, C, ~] = Logistic_L21_1stage(Xo, Y, lambda, group_arr);
 elseif loss == 0

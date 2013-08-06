@@ -1,6 +1,5 @@
-function simdata = soslasso_sim_makesimdata(X,G,sigma,varargin)
-%  SOSLASSO_SIM_SETUP Setup a simulation experiment and create a data
-%  template.
+function simdata = soslasso_sim_makesimdata(X_truth,G,sigma,varargin)
+%  SOSLASSO_SIM_MAKESIMDATA Create data based on the templates.
 %
 %  USAGE:
 %    simparams = SOSLASSO_SIM_SETUP() Returns default simparams structure, 
@@ -13,68 +12,57 @@ function simdata = soslasso_sim_makesimdata(X,G,sigma,varargin)
 %    [...] = SOSLASSO_SIM_SETUP(simparams,'verbose') Same as above, but 
 %    print plots and other useful information to the screen.
 
-if nargin == 0
-    simparams.nsubjects = uint16(16);	% number of subjects
-    simparams.nvoxels = uint16(1024);   % number of voxels
-    simparams.groupsize = uint16(64);	% group size
-    simparams.groupspace = uint16(4);   % group space
-    simparams.ntrials = uint16(64);     % number of trials
-    simparams.nactgroups = uint16(4);   % number of active groups
-    simparams.nactvoxels = uint16(8);   % number of active voxels per trial
-    simparams.DataTypeInd = uint16(1);  % See help.
-    return
-end
-
 if nargin > 3
     if islogical(varargin{1})
         VERBOSE = varargin{1};
     else
-        error('soslasso_sim:Verbose flag needs to be true or false');
+        error('soslasso_sim_makesimdata:Verbose flag needs to be true or false');
     end
 else
     VERBOSE = false;
 end
 
-%% Extract parameters
-P = length(X);
-[T,N] = size(X{1});
-K = length(G);
-M = length(G{1});
-L = G{2}(1) - G{1}(1);
-
 %% Add gaussian noise
-X_noise = cell(P,1);
-for i=1:length(X)
-    X_noise{i} = X{i} + (randn(T,N)*sigma);
+P = uint32(length(X_truth));
+T = uint32(size(X_truth{1},1));
+N = uint32(size(X_truth{1},2));
+[noise,X] = deal(cell(P,1));
+
+if iscell(sigma)
+% Hidden feature: if you want to reuse the noise from a previous simulation,
+% which used exactly the same number of subjects (i.e. tasks), then the cell
+% array of noise matrices can be passed to the sigma argument, rather than a
+% scalar value. This noise will be used, rather than generating new random
+% i.i.d. gaussian noise.
+    noise = sigma;
+    if ~length(X)==length(noise)
+        error('soslasso_sim_makesimdata:Cell arrays X_truth and noise do not match.');
+    end
+    for i=1:length(X)
+        X{i} = X_truth{i} + noise{i};
+    end
+else
+    for i=1:length(X)
+        noise{i} = (randn(T,N)*sigma);
+        X{i} = X_truth{i} + noise{i};
+    end
 end
 
-%% Replicate (for SOS Lasso)
-allvox = 1:N;
-replication_index = cell2mat(G);
-groups = repmat(uint16(0), M*K, 1);
-group_arr = repmat(N+1,K,M);
+%% Define the replicated space
+[RepIndex, groups, group_arr] = define_rep_space(G);
 
-a = 0; %#ok
-b = 0;
-ii = 0;
-for j=1:K % number of groups
-	group_arr(j,1:sum(temp)) = (ii+1):(ii+sum(temp));
-	ii = ii + sum(temp);
-	a = b + 1;
-	b = (a + sum(temp)) - 1;
-	groups(a:b) = j;
-end
-
+%% Create Y vectors.
 Y = cell(P,1);
-y = [ones(idivide(T,2,'floor'),1),-ones(idivide(T,2,'ceil'),1)];
+y = [ones(idivide(T,2,'floor'),1);-ones(idivide(T,2,'ceil'),1)];
 Y(:) = deal({y});
 
 simdata.Y = Y;
 simdata.G = G;
+simdata.X_truth = X_truth;
+simdata.noise = noise;
 simdata.X = X;
-simdata.X_noise;
-simdata.replication_index = replication_index;
+simdata.RepIndex= RepIndex;
 simdata.groups = groups;
-simdata.group_arr;
+simdata.group_arr = group_arr;
 simdata.sigma = sigma;
 simdata.Date = date;

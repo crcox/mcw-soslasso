@@ -48,14 +48,14 @@
 %  Least_L21, init_opts
 
 %% Code starts here
-function [W, C, funcVal] = Logistic_L21_2stage_1reg(X, Y, rho1, group_arr,groups)
+function [W, C, funcVal] = Logistic_L21_2stage_1reg(X, Y, rho1,RepIndex,group_arr,groups)
 
 if nargin <3
     error('\n Inputs: X, Y, rho1, should be specified!\n');
 end
 X = multi_transpose(X);
 
-if nargin <6
+if nargin <7
     opts = [];
 end
 
@@ -70,7 +70,7 @@ else
 end
 
 task_num  = length (X);
-dimension = size(X{1}, 1);
+dimension = size(X{1}(RepIndex,:), 1);
 funcVal = [];
 
 %initialize a starting point
@@ -217,11 +217,11 @@ C = Czp;
         lossValVect = zeros (1 , task_num);
         if opts.pFlag
             parfor i = 1:task_num
-                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}, Y{i});
+                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}(RepIndex,:), Y{i});
             end
         else
             for i = 1:task_num
-                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}, Y{i});
+                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}(RepIndex,:), Y{i});
             end
         end
         grad_W = grad_W + rho_L2 * 2 * W;
@@ -234,11 +234,11 @@ C = Czp;
         funcVal = 0;
         if opts.pFlag
             parfor i = 1: task_num
-                funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}, Y{i});
+                funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}(RepIndex,:), Y{i});
             end
         else
             for i = 1: task_num
-                funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}, Y{i});
+                funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}(RepIndex,:), Y{i});
             end
         end
         % here when computing function value we do not include

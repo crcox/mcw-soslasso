@@ -1,5 +1,5 @@
 function [RepIndex, groups, group_arr] = define_rep_space(G)
-% DEFINEREPSPACE Generate all necessary indexes for working with data in a
+% DEFINE_REP_SPACE Generate all necessary indexes for working with data in a
 % replicated space where voxels in multiple groups can be considered as a
 % member of each group, and treated like several voxels. Ultimately, the
 % weights on several instances of the same voxel in different groups will
@@ -40,10 +40,12 @@ function [RepIndex, groups, group_arr] = define_rep_space(G)
 % DEFINE_REP_SPACE is a memory efficient replacement for makeA_multitask.
 %
 % Chris Cox | July 24, 2013
-
+    if isrow(G);
+        G = G';
+    end
     K = length(G);
-    MaxGroupSize = max(cellfun(@length,G));
-    RepSpaceSize = sum(cellfun(@length,G));
+    MaxGroupSize = uint32(max(cellfun(@length,G)));
+    RepSpaceSize = uint32(sum(cellfun(@length,G)));
 %% Create RepIndex
     RepIndex = cell2mat(G');
 

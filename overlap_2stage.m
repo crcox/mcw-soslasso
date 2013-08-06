@@ -1,4 +1,4 @@
-function [Xhat,C] = overlap_2stage(loss,Y,Xo,X,G,group_arr,groups, lambda)
+function [Xhat,C] = overlap_2stage(loss,Y,X,G,RepIndex,group_arr,groups,lambda)
 
 % function to perform the overlapping SGL optimization, with both LS and LOGIT loss
 % INPUTS
@@ -17,9 +17,8 @@ function [Xhat,C] = overlap_2stage(loss,Y,Xo,X,G,group_arr,groups, lambda)
 %
 % Nikhil Rao
 % 3/17/13
-
 if loss == 1
-    [W, C, ~] = Logistic_L21_2stage_1reg(Xo, Y, lambda, group_arr, groups);
+    [W, C, ~] = Logistic_L21_2stage_1reg(X, Y, lambda, RepIndex, group_arr, groups);
 elseif loss == 0
     [W, ~] = Least_L21_2stage(Xo, Y, lambda, group_arr);
     C = [];

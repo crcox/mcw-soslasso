@@ -7,19 +7,18 @@ end
 
 offset = (siz-1)/2;
 
-
 if ~overlap
-irange = offset+1:2*offset+1:I-offset;
-jrange = offset+1:2*offset+1:J-offset;
-% krange = offset+1:2*offset+1:K-offset;
-% ^comment  above line and keep below line for nXnX1
-krange = 1:K;
+    irange = offset+1:2*offset+1:I-offset;
+    jrange = offset+1:2*offset+1:J-offset;
+    krange = offset+1:2*offset+1:K-offset;
+    % ^comment  above line and keep below line for nXnX1
+%     krange = 1:K;
 else
-irange = offset+1:offset:I-offset;
-jrange = offset+1:offset:J-offset;
-% krange = offset+1:offset:K-offset;
-% ^comment  above line and keep below line for nXnX1
-krange = 1:K;
+    irange = offset+1:offset:I-offset;
+    jrange = offset+1:offset:J-offset;
+    krange = offset+1:offset:K-offset;
+    % ^comment  above line and keep below line for nXnX1
+%     krange = 1:K;
 end
 
 % FOR EACH I, J, K IN THE RANGE, FORM GROUP AND MAP TO N SPACE
@@ -69,7 +68,7 @@ end
 function grp = makegrp(center,d)
 i = center(1); j = center(2) ; k = center(3);
 krange = k-d:k+d; 
-krange = k;% have this line for nXnX1 group
+% krange = k;% have this line for nXnX1 group
 jrange = j-d:j+d;
 irange = i-d:i+d;  
 
@@ -90,6 +89,3 @@ function n = map2n(center,I,J)
 i = center(1); j = center(2); k = center(3);
 n = i + I*(j-1) + I*J*(k-1);
 end
-
-
-
