@@ -62,5 +62,5 @@ clear temp i;
 [X,GroupInfo] = mcw_prep_data(metadata,params);
 
 %% Run Experiment
-[final_test,final_train,cv_test,cv_train] = classify_CRC(Y,X,GroupInfo,metadata,params);
+[final_test,final_train,cv_test,cv_train] = mcw_classify(Y,X,GroupInfo,metadata,params);
 final_test

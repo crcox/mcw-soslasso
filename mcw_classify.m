@@ -39,7 +39,8 @@ groups    = GroupInfo.groups;
 group_arr = GroupInfo.group_arr;
 RepIndex  = GroupInfo.RepIndex;
 
-CVBlocks  = metadata.CVBlocks; 
+CVBlocks       = metadata.CVBlocks; 
+FinalTestBlock = metadata.FinalTestBlock; 
 
 %% Mean-center the data
 if params.MeanCenter == true
@@ -60,18 +61,22 @@ end
 
 %% Cross Validation Module
 Betahat = zeros(numvoxels,numpersons*numcvs*numlambda);
+C = zeros(1,numcvs*numlambda);
 ix     = uint32(0);
 cv_set = uint32(1:numcvs);
+
 for lamind = 1:numlambda
     lam = lamset(lamind);
-    for cv = 1:numcvs
+    for cv = 1:numcvs;
         % Compute indexes for storing the betahats
         a  = uint32(ix * numpersons + 1);
         ix = uint32(1 + ix);
         b  = uint32(ix * numpersons); 
-
-        train = any(CVBlocks(:,cv_set~=cv),2);
-        trainX = cell(size(X));trainY = cell(size(Y));
+        
+        CVTestBlock = CVBlocks(:,cv);
+        train = ~CVTestBlock & ~FinalTestBlock;
+        
+        [trainX, trainY] = deal(cell(numpersons,1));
         for person = 1:numpersons
             trainX{person} = X{person}(train,:);
             trainY{person} = Y{person}(train);
@@ -93,11 +98,19 @@ for lamind = 1:numlambda
                 end
             case 3
                 % lam is the regularizer, rho = reg. for L1 term
-                if classify==1
-                    [Betahat(:,a:b),~] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
-                else
-                    [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
+                try
+                    if classify==1
+                        [tempB,tempC] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
+                        Betahat(:,a:b) = tempB;
+                        C(ix) = tempC; 
+                    else
+                        [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
+                    end
+                catch ME
+                    save('recovery.mat',Betahat,C);
+                    rethrow(ME);
                 end
+                    
                 
             case 4
                 if classify==1
@@ -124,7 +137,7 @@ Betahat = sparse(Betahat);
 N = numpersons*numcvs*numlambda;
 scores = zeros(numsamples,N);
 for i = 1:numpersons
-    scores(:,i:numpersons:N) = X{i} * Betahat(:,i:numpersons:N);
+    scores(:,i:numpersons:N) = (X{i} * Betahat(:,i:numpersons:N)) + C;
 end
 prediction = reshape(scores>0,numsamples*numpersons,numcvs*numlambda);
 truth = cell2mat(Y) > 0;
@@ -238,17 +251,16 @@ switch whatmethod
         filename_method = 'LASSO';
         filename = sprintf(fmt,filename_type, filename_script, filename_method, filename_timestamp);
         
-
     case 2 %glasso
-        filename_method = 'LASSO';
+        filename_method = 'GLASSO';
         filename = sprintf(fmt,filename_type, filename_script, filename_method, filename_timestamp);
         
     case 3 %soglasso
-        filename_method = 'LASSO';
+        filename_method = 'SOSLASSO';
         filename = sprintf(fmt,filename_type, filename_script, filename_method, filename_timestamp);
         
     case 4 %oglasso
-        filename_method = 'LASSO';
+        filename_method = 'OGLASSO';
         filename = sprintf(fmt,filename_type, filename_script, filename_method, filename_timestamp);     
 end
 save(filename,'Betahat','X','Y','final_train','final_test');

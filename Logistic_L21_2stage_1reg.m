@@ -122,7 +122,8 @@ t_old = 0;
 iter = 0;
 gamma = 1;
 gamma_inc = 2;
-
+% opts.maxIter = 10000;
+% opts.tol = 1e-6;
 while iter < opts.maxIter
     alpha = (t_old - 1) /t;
     

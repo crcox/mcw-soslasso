@@ -17,55 +17,57 @@ function [Xhat,C] = overlap_2stage(loss,Y,X,G,RepIndex,group_arr,groups,lambda)
 %
 % Nikhil Rao
 % 3/17/13
-if loss == 1
-    [W, C, ~] = Logistic_L21_2stage_1reg(X, Y, lambda, RepIndex, group_arr, groups);
-elseif loss == 0
-    [W, ~] = Least_L21_2stage(Xo, Y, lambda, group_arr);
-    C = [];
-else
-    error('loss has to be 0 or 1 \n');
-end
-% W is the output matrix
-%we now need to combine overlapping groups
-
-for iii = 1:length(G)
-    temp = G{iii};
-    n(iii) = max(temp);
-end
-n = max(n);
-T = length(Y);
-Xhat = zeros(n,T);
-% identify whether a dummy variable exists and chuck it
-dummy = max(max(group_arr));
-mask = (group_arr == dummy);
-isdummy = 0;
-if sum(sum(mask))>1
-    isdummy = 1;
-end
-for ii = 1:length(G)
-    t = G{ii};
-    s = group_arr(ii,:);
-    if isdummy == 1
-       dummyind = find(s == dummy);
-       s(dummyind) = [];
+    if loss == 1
+        [W, C, ~] = Logistic_L21_2stage_1reg(X, Y, lambda, RepIndex, group_arr, groups);
+    elseif loss == 0
+        [W, ~] = Least_L21_2stage(Xo, Y, lambda, group_arr);
+        C = [];
+    else
+        error('loss has to be 0 or 1 \n');
     end
-    Xhat(t,:) = Xhat(t,:) + W(s,:);
-end
-
-%debias the solution
-temp = Xhat;
-for ii = 1:T
-    idx = find(temp(:,ii)~=0);
-    if ~isempty(idx)
-        Xtemp = X{ii};
-        Xtemp = Xtemp(:,idx);
-        vtemp = Xtemp\Y{ii};
-        Xhat(idx,ii) = vtemp;
-    end
-end
+    % W is the output matrix
+    %we now need to combine overlapping groups
     
+    for iii = 1:length(G)
+        temp = G{iii};
+        n(iii) = max(temp);
+    end
+    n = max(n);
+    T = length(Y);
+    Xhat = zeros(n,T);
+    % identify whether a dummy variable exists and chuck it
+    dummy = max(max(group_arr));
+    mask = (group_arr == dummy);
+    isdummy = 0;
+    if sum(sum(mask))>1
+        isdummy = 1;
+    end
+    for ii = 1:length(G)
+        t = G{ii};
+        s = group_arr(ii,:);
+        if isdummy == 1
+           dummyind = find(s == dummy);
+           s(dummyind) = [];
+        end
+        Xhat(t,:) = Xhat(t,:) + W(s,:);
+    end
+    
+    %debias the solution using the X and Y and Xhat
+    % Xnew = cell(T,1);
+    inds = cell(T,1);
+    temp = Xhat;
+    Xhat = zeros(n,T);
+    % totinds =[];
+    for ii = 1:T
+        idx = find(temp(:,ii)~=0);
+        if ~isempty(idx);
+            inds{ii} = idx;
+            Xtemp = X{ii};
+            Xtemp = Xtemp(:,idx);
+            Xdeb{1} = Xtemp;
+            [Bhat, C, ~] = Logistic_Lasso(Xdeb, Y(1), 0);
+            Xhat(idx,ii) = Bhat;
+        end
+    end
+        
 end
-
-
-
-
