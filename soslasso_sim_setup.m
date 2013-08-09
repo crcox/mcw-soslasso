@@ -24,7 +24,7 @@ function [simparams,X_truth,G] = soslasso_sim_setup(varargin)
 %    responsive to the same category.
 %
 %    See also:
-%    SOSLASSO_SIM_SETUP>KEY_VARIABLES
+%    SOSLASSO_SIM_HELP>VARIABLES
 
 if nargin == 0
     simparams.nsubjects = uint32(16);	% number of subjects
@@ -203,27 +203,3 @@ if VERBOSE
         imagesc(X_truth{i})
     end
 end
-
-function key_variables()
-% Key to variables:
-% simparams.nsubjects: number of subjects           
-% simparams.nvoxels: number of voxels
-% simparams.groupsize: group size (uniform)       
-% simparams.groupshift: space between start of each group (offset for overlap).
-% simparams.ntrials: Number of trials  
-% simparams.nactgroups: number of ``active'' groups.
-% simparams.nactvoxels: The number of voxels that will be active on each trial.         
-% V: Number of (unique) voxels across all selected groups.
-% X_truth: The cell array holding the pattern for each subject.
-
-% Explanation of data types:
-% Same Sparse Groups: The group selection is the same for each subject, but
-% the patterns vary within and across subjects. Sparsity within and among
-% groups, but the selection is applied to all subjects.
-%
-% Shifted Sparse Groups: One set of active groups is chosen before entering
-% the subject loop, but the active groups for each subject are randomly
-% offset (shifted positively or negatively by some amount).  This means
-% that the selected groups will be anatomically similar, but not identical
-% across subjects. The voxels active on each trial are randomly sampled
-% from the active groups.
