@@ -36,7 +36,7 @@ if nargin == 0
     simparams.nactgroups = uint32(4);   % number of active groups
     simparams.nactvoxels = uint32(8);   % number of active voxels per trial
     simparams.DataTypeInd = uint32(1);  % See help.
-    simparams.Modular = logical(0);     % See help.
+    simparams.Modular = false;          % See help.
     return
 end
 % N.B. the group size and group shift define the ground truth---how the
