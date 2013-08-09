@@ -64,8 +64,6 @@ elseif simparams.DataTypeInd == 5
 	simparams.DataType = 'Different No Groups';
 end
 
-simparams.StartDate = date;
-
 %% Define Groups
 a = 1:simparams.groupshift:(simparams.nvoxels-simparams.groupsize+1);    % group start ind
 b = (simparams.groupsize):simparams.groupshift:simparams.nvoxels;        % group end ind
@@ -203,3 +201,41 @@ if VERBOSE
         imagesc(X_truth{i})
     end
 end
+
+%% Add gaussian noise
+X = cell(P,1);
+for i=1:length(X_truth)
+    X{i} = X_truth{i} + (randn(T,N)*sigma);
+end
+
+%% Replicate (for SOS Lasso)
+allvox = 1:N;
+replication_index = cell2mat(G);
+groups = repmat(uint32(0), M*K, 1);
+group_arr = repmat(N+1,K,M);
+
+a = 0; %#ok
+b = 0;
+ii = 0;
+for j=1:K % number of groups
+	group_arr(j,1:sum(temp)) = (ii+1):(ii+sum(temp));
+	ii = ii + sum(temp);
+	a = b + 1;
+	b = (a + sum(temp)) - 1;
+	groups(a:b) = j;
+end
+
+Y = cell(P,1);
+y = [ones(idivide(T,2,'floor'),1),-ones(idivide(T,2,'ceil'),1)];
+Y(:) = deal({y});
+
+simdata.Y = Y;
+simdata.G = G;
+simdata.X = X_truth;
+simdata.X_noise;
+simdata.replication_index = replication_index;
+simdata.groups = groups;
+simdata.group_arr;
+simdata.sigma = sigma;
+simdata.StartDate = date;
+simparams.StartDate = date;

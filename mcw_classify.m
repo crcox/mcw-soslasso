@@ -107,7 +107,7 @@ for lamind = 1:numlambda
                         [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
                     end
                 catch ME
-                    save('recovery.mat',Betahat,C);
+                    save('recovery.mat','Betahat','C');
                     rethrow(ME);
                 end
                     
