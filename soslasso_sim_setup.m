@@ -1,4 +1,4 @@
-function [simparams,X,G] = soslasso_sim_setup(varargin)
+function [simparams,X_truth,G] = soslasso_sim_setup(varargin)
 %  SOSLASSO_SIM_SETUP Setup a simulation experiment and create a data
 %  template.
 %
@@ -21,14 +21,16 @@ function [simparams,X,G] = soslasso_sim_setup(varargin)
 %    5 Different No Groups
 
 if nargin == 0
-    simparams.nsubjects = uint16(16);	% number of subjects
-    simparams.nvoxels = uint16(1024);   % number of voxels
-    simparams.groupsize = uint16(64);	% group size
-    simparams.groupspace = uint16(4);   % group space
-    simparams.ntrials = uint16(64);     % number of trials
-    simparams.nactgroups = uint16(4);   % number of active groups
-    simparams.nactvoxels = uint16(8);   % number of active voxels per trial
-    simparams.DataTypeInd = uint16(1);  % See help.
+    simparams.nsubjects  = uint32(16);	% number of subjects
+    simparams.nvoxels    = uint32(1024);% number of voxels
+    simparams.groupsize  = uint32(64);	% group size
+    simparams.groupspace = uint32(4);   % group space
+    simparams.ntrials    = uint32(64);  % number of trials
+    simparams.nactgroups = uint32(4);   % number of active groups
+    simparams.nactvoxels = uint32(8);   % number of active voxels per trial
+    simparams.sigma      = double(0.5); % Standard deviation of Gaussian 
+                                        % noise added to X_truth.
+    simparams.DataTypeInd = uint32(1);  % See soslasso_sim_help>data_type.
     return
 end
 if nargin > 1
@@ -50,12 +52,10 @@ elseif simparams.DataTypeInd == 5
 	simparams.DataType = 'Different No Groups';
 end
 
-simparams.StartDate = date;
-
 %% Define Groups
 a = 1:simparams.groupspace:(simparams.nvoxels-simparams.groupsize+1);    % group start ind
 b = (simparams.groupsize):simparams.groupspace:simparams.nvoxels;        % group end ind
-ngroups = uint16(((simparams.nvoxels-simparams.groupsize)/simparams.groupspace)+1);
+ngroups = uint32(((simparams.nvoxels-simparams.groupsize)/simparams.groupspace)+1);
 G = cell(1,ngroups);
 for i=1:ngroups
     G{i} = a(i):b(i);
@@ -63,44 +63,19 @@ end
 clear a b;
 
 %% Define Data
-% Key to variables:
-% simparams.nsubjects: number of subjects           
-% simparams.nvoxels: number of voxels
-% simparams.groupsize: group size (uniform)       
-% simparams.groupspace: space between start of each group (offset for overlap).
-% simparams.ntrials: Number of trials  
-% simparams.nactgroups: number of ``active'' groups.
-% simparams.nactvoxels: The number of voxels that will be active on each trial.         
-% V: Number of (unique) voxels across all selected groups.
-% X: The cell array holding the pattern for each subject.
-% X_noise: X{i} + randn(size(X{i}))*sigma
-% R: X_noise, replicated (see makeA_multitask_efficient.m for routine).
-
-% Explanation of data types:
-% Same Sparse Groups: The group selection is the same for each subject, but
-% the patterns vary within and across subjects. Sparsity within and among
-% groups, but the selection is applied to all subjects.
-%
-% Shifted Sparse Groups: One set of active groups is chosen before entering
-% the subject loop, but the active groups for each subject are randomly
-% offset (shifted positively or negatively by some amount).  This means
-% that the selected groups will be anatomically similar, but not identical
-% across subjects. The voxels active on each trial are randomly sampled
-% from the active groups.
-
-X = cell(simparams.nsubjects,1);
+X_truth = cell(simparams.nsubjects,1);
 switch simparams.DataType 
     case 'Same Sparse Groups'
-        active_groups = uint16(randperm(ngroups,simparams.nactgroups));
+        active_groups = uint32(randperm(ngroups,simparams.nactgroups));
         g = cell2mat(G(active_groups));
         g_set = unique(g);
-        V = uint16(length(g_set));
+        V = uint32(length(g_set));
         for i=1:simparams.nsubjects
-            X{i} = zeros(simparams.ntrials,simparams.nvoxels);
+            X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
             for j=1:idivide(simparams.ntrials,2,'floor')
-                temp = uint16(randperm(V,simparams.nactvoxels));
+                temp = uint32(randperm(V,simparams.nactvoxels));
                 active_voxels = g_set(temp);
-                X{i}(j,active_voxels) = 1;
+                X_truth{i}(j,active_voxels) = 1;
             end
         end
         if VERBOSE
@@ -108,7 +83,7 @@ switch simparams.DataType
         end
         
     case 'Shifted Sparse Groups'
-        active_groups = uint16(randperm(ngroups,simparams.nactgroups));
+        active_groups = uint32(randperm(ngroups,simparams.nactgroups));
         shift_log = zeros(1,simparams.nsubjects);
         for i=1:simparams.nsubjects
             ss = 2; % step size (minimum misalignment will be ss*simparams.groupspace)
@@ -117,12 +92,12 @@ switch simparams.DataType
             active_groups = mod(active_groups + shift,ngroups) + 1;
             g = cell2mat(G(active_groups));
             g_set = unique(g);
-            V = uint16(length(g_set));
-            X{i} = zeros(simparams.ntrials,simparams.nvoxels);
+            V = uint32(length(g_set));
+            X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
             for j=1:idivide(simparams.ntrials,2,'floor')
-                temp = uint16(randperm(V,simparams.nactvoxels));
+                temp = uint32(randperm(V,simparams.nactvoxels));
                 active_voxels = g_set(temp);
-                X{i}(j,active_voxels) = 1;
+                X_truth{i}(j,active_voxels) = 1;
             end
             if VERBOSE
                 disp(active_groups)
@@ -131,15 +106,15 @@ switch simparams.DataType
  
     case 'Different Sparse Groups'
         for i=1:simparams.nsubjects
-            X{i} = zeros(simparams.ntrials,simparams.nvoxels);
-            active_groups = uint16(randperm(ngroups,simparams.nactgroups));
+            X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
+            active_groups = uint32(randperm(ngroups,simparams.nactgroups));
             g = cell2mat(G(active_groups));
             g_set = unique(g);
-            V = uint16(length(g_set));
+            V = uint32(length(g_set));
             for j=1:idivide(simparams.ntrials,2,'floor')
-                temp = uint16(randperm(V,simparams.nactvoxels));
+                temp = uint32(randperm(V,simparams.nactvoxels));
                 active_voxels = g_set(temp);
-                X{i}(j,active_voxels) = 1;
+                X_truth{i}(j,active_voxels) = 1;
             end
             if VERBOSE
                 disp(active_groups)
@@ -148,44 +123,82 @@ switch simparams.DataType
         
     case 'Identical No Groups'
         % Groups are selected only to derive V, number of voxels.
-        active_groups = uint16(randperm(ngroups,simparams.nactgroups));
+        active_groups = uint32(randperm(ngroups,simparams.nactgroups));
         g = cell2mat(G(active_groups));
         g_set = unique(g);
-        V = uint16(length(g_set));
+        V = uint32(length(g_set));
         % A random set of voxels is selected; patterns for each trial will
         % derive from v_set.
-        v_set = uint16(randperm(simparams.nvoxels,V));
+        v_set = uint32(randperm(simparams.nvoxels,V));
         for i=1:simparams.nsubjects
-            X{i} = zeros(simparams.ntrials,simparams.nvoxels);
+            X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
             for j=1:idivide(simparams.ntrials,2,'floor')
-                temp = uint16(randperm(V,simparams.nactvoxels));
+                temp = uint32(randperm(V,simparams.nactvoxels));
                 active_voxels = v_set(temp);
-                X{i}(j,active_voxels) = 1;
+                X_truth{i}(j,active_voxels) = 1;
             end
         end
 
     
     case 'Different No Groups'
         % Groups are selected only to derive V, number of voxels.
-        active_groups = uint16(randperm(ngroups,simparams.nactgroups));
+        active_groups = uint32(randperm(ngroups,simparams.nactgroups));
         g = cell2mat(G(active_groups));
         g_set = unique(g);
-        V = uint16(length(g_set));
+        V = uint32(length(g_set));
         for i=1:simparams.nsubjects
             % A random set of voxels is selected; patterns for each trial will
             % derive from v_set.
-            v_set = uint16(randperm(simparams.nvoxels,V));
-            X{i} = zeros(simparams.ntrials,simparams.nvoxels);
+            v_set = uint32(randperm(simparams.nvoxels,V));
+            X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
             for j=1:idivide(simparams.ntrials,2,'floor')
-                temp = uint16(randperm(V,simparams.nactvoxels));
+                temp = uint32(randperm(V,simparams.nactvoxels));
                 active_voxels = v_set(temp);
-                X{i}(j,active_voxels) = 1;
+                X_truth{i}(j,active_voxels) = 1;
             end
         end
 end
 if VERBOSE
     for i=1:6
         subplot(2,3,i);
-        imagesc(X{i})
+        imagesc(X_truth{i})
     end
 end
+
+%% Add gaussian noise
+X = cell(P,1);
+for i=1:length(X_truth)
+    X{i} = X_truth{i} + (randn(T,N)*sigma);
+end
+
+%% Replicate (for SOS Lasso)
+allvox = 1:N;
+replication_index = cell2mat(G);
+groups = repmat(uint32(0), M*K, 1);
+group_arr = repmat(N+1,K,M);
+
+a = 0; %#ok
+b = 0;
+ii = 0;
+for j=1:K % number of groups
+	group_arr(j,1:sum(temp)) = (ii+1):(ii+sum(temp));
+	ii = ii + sum(temp);
+	a = b + 1;
+	b = (a + sum(temp)) - 1;
+	groups(a:b) = j;
+end
+
+Y = cell(P,1);
+y = [ones(idivide(T,2,'floor'),1),-ones(idivide(T,2,'ceil'),1)];
+Y(:) = deal({y});
+
+simdata.Y = Y;
+simdata.G = G;
+simdata.X = X_truth;
+simdata.X_noise;
+simdata.replication_index = replication_index;
+simdata.groups = groups;
+simdata.group_arr;
+simdata.sigma = sigma;
+simdata.StartDate = date;
+simparams.StartDate = date;
