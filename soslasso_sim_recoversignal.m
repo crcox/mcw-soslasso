@@ -11,18 +11,7 @@ else
 end
 
 %% Identify active voxels by subject
-ActiveVoxels = cellfun(@any,simdata.X_truth,'Unif',0);
-temp = any(cell2mat(ActiveVoxels));
-if isrow(temp)
-    ACTIVES = temp';
-else
-    ACTIVES = temp;
-end
-ActiveVoxels = cellfun(@transpose,ActiveVoxels,'Unif',0)';
-
-% implement cross validation
-% think about how to store data
-% separate structures for final solutions and CV solutions.
+ActiveVoxels = cell2mat(cellfun(@any,simdata.X_truth,'Unif',0));
 
 P = uint32(length(simdata.X));
 T = uint32(size(simdata.X{1},1));
@@ -31,41 +20,57 @@ K = uint32(length(simdata.G));
 M = uint32(length(simdata.G{1}));
 L = simdata.G{2}(1) - simdata.G{1}(1);
 
-%% SOSLasso
-[Betahat.soslasso,C.soslasso] = overlap_2stage(1,...
-    simdata.Y,...
-    simdata.X,...
-    simdata.G,...
-    simdata.RepIndex,...
-    simdata.group_arr,...
-    simdata.groups,...
-    lambda);
-temp = any(abs(Betahat.soslasso)>0,2);
-if isrow(temp)
-    DiscVox.soslasso_overall = temp';
-else
-    DiscVox.soslasso_overall = temp;
-end
-DiscVox.soslasso = abs(Betahat.soslasso)>0;
-[DPrime.soslasso,Counts.soslasso] = dprime(cell2mat(ActiveVoxels),DiscVox.soslasso);
-[DPrime.soslasso_overall,Counts.soslasso_overall] = dprime(ACTIVES,DiscVox.soslasso_overall);
+
 
 %% Lasso
-[Betahat.lasso,C.soslasso,~] = Logistic_Lasso(...
-    simdata.X,...
-    simdata.Y,...
-    lambda);
-temp = any(abs(Betahat.lasso)>0,2);
-if isrow(temp)
-    DiscVox.lasso_overall = temp';
-else
-    DiscVox.lasso_overall = temp;
-end
-DiscVox.lasso = abs(Betahat.lasso)>0;
-[DPrime.lasso,Counts.lasso] = dprime(cell2mat(ActiveVoxels),DiscVox.lasso);
-[DPrime.lasso_overall,Counts.lasso_overall] = dprime(ACTIVES,DiscVox.lasso_overall);
+
 
 %% Univarite (FDR corrected)
+
+% Print mean results
+if VERBOSE
+    structfun(@mean,DPrime,'Unif',0)
+end
+
+%% SUB-FUNCTIONS
+%% SOSLasso
+function [Betahat,C] = soslasso_solve(simdata,soslasso_params)
+	[Betahat.soslasso,C.soslasso] = overlap_2stage(1,...
+    	simdata.Y,...
+    	simdata.X,...
+    	simdata.G,...
+    	simdata.RepIndex,...
+    	simdata.group_arr,...
+    	simdata.groups,...
+    	lambda);
+end
+
+function [dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,C,varargin)
+	if nargin > 5
+		error('soslasso_evaluate: Too many input arguments.')
+	end
+	Overall = varargin{2};
+	nzbeta = abs(Betahat.soslasso)>0;
+	if Overall
+		[dp,counts] = dprime(any(ActiveVoxels)',any(nzbeta,2));
+	else
+		[dp,counts] = dprime(ActiveVoxels',nzbeta);
+	end
+end
+
+
+function [Betahat,C] = lasso_solve()
+	[Betahat,C,~] = Logistic_Lasso(simdata.X,
+		simdata.Y,...
+		lambda);
+end
+
+function [dp,counts] = lasso_evaluate(ActiveVoxels,Betahat,C,varargin)
+	[dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,C,varargin);
+end
+
+function [] = univariate_solve()
+	
 [MEAN_A, MEAN_B] = deal(zeros(P,N));
 [p_individual,h_individual] = deal(zeros(N,P));
 for i=1:P
@@ -96,10 +101,6 @@ DiscVox.univariate = abs(h_individual)>0;
 
 [DPrime.univariate_overall,Counts.univariate_overall] = dprime(ACTIVES,DiscVox.univariate_overall);
 
-% Print mean results
-if VERBOSE
-    structfun(@mean,DPrime,'Unif',0)
-end
 
 % In citing MALSAR in your papers, you can use the following:
 % [Zhou 2012] J. Zhou, J. Chen and J. Ye. MALSAR: Multi-tAsk Learning via 
