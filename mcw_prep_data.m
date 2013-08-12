@@ -32,7 +32,8 @@ function [X,GroupInfo] = mcw_prep_data(metadata,params,varargin)
     XYZ_tlrc_mat = cell2mat(struct2cell(XYZ_tlrc)); 
     
     %% Find the range of each dimension that contains all coordinates.
-    minXYZ = min(XYZ_tlrc_mat);
+    minXYZ = min(XYZ_tlrc_mat);    RemoveOutliersLater = false;
+
     maxXYZ = max(XYZ_tlrc_mat);
     maxIJK = maxXYZ - minXYZ + 1;
     I = maxIJK(1);
