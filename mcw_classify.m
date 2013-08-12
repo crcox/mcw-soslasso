@@ -61,7 +61,7 @@ end
 
 %% Cross Validation Module
 Betahat = zeros(numvoxels,numpersons*numcvs*numlambda);
-C = zeros(1,numcvs*numlambda);
+C = zeros(1,numpersons*numcvs*numlambda);
 ix     = uint32(0);
 cv_set = uint32(1:numcvs);
 
@@ -102,7 +102,7 @@ for lamind = 1:numlambda
                     if classify==1
                         [tempB,tempC] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
                         Betahat(:,a:b) = tempB;
-                        C(ix) = tempC; 
+                        C(a:b) = tempC; 
                     else
                         [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
                     end
@@ -136,9 +136,16 @@ Betahat = sparse(Betahat);
 % Betahat is subjects * cv * lambda, populated in that order.
 N = numpersons*numcvs*numlambda;
 scores = zeros(numsamples,N);
-for i = 1:numpersons
-    scores(:,i:numpersons:N) = (X{i} * Betahat(:,i:numpersons:N)) + C;
+
+try
+    for i = 1:numpersons
+        scores(:,i:numpersons:N) = bsxfun(@plus,X{i} * Betahat(:,i:numpersons:N), C);
+    end
+catch ME
+    save('recovery.mat','Betahat','C');
+    rethrow(ME);
 end
+
 prediction = reshape(scores>0,numsamples*numpersons,numcvs*numlambda);
 truth = cell2mat(Y) > 0;
 TEST  = repmat(CVBlocks(:,1:numcvs),numpersons,numlambda);
