@@ -1,4 +1,4 @@
-function [simparams,X_truth,G] = soslasso_sim_setup(varargin)
+function [simparams,X_truth,Y,ActiveVoxels] = soslasso_sim_setup(varargin)
 %  SOSLASSO_SIM_SETUP Setup a simulation experiment and create a data
 %  template.
 %
@@ -30,7 +30,7 @@ function [simparams,X_truth,G] = soslasso_sim_setup(varargin)
 		simparams.nsubjects = uint32(16);	% number of subjects
 		simparams.nvoxels = uint32(1024);   % number of voxels
 		simparams.groupsize = uint32(64);	% group size
-		simparams.groupshift = uint32(32);   % group shift (i.e. distance from G1(1)
+		simparams.groupshift = uint32(32);  % group shift (i.e. distance from G1(1)
 											%     to G2(1) in voxel space.) 
 		simparams.ntrials = uint32(64);     % number of trials
 		simparams.nactgroups = uint32(4);   % number of active groups
@@ -65,63 +65,50 @@ function [simparams,X_truth,G] = soslasso_sim_setup(varargin)
 	end
 
 	%% Define Data
-	X_truth = define_data(simparams); % private function
+	[X_truth,Y] = define_data(simparams); % private function
 	if VERBOSE
-		for i=1:6
-			subplot(2,3,i);
-			imagesc(X_truth{i})
-		end
-	end
-
-	%% Add gaussian noise
-	X = cell(P,1);
-	for i=1:length(X_truth)
-		X{i} = X_truth{i} + (randn(T,N)*sigma);
-	end
-
-	%% Create target indexes
-	Y = cell(P,1);
-	y = [ones(idivide(T,2,'floor'),1),-ones(idivide(T,2,'ceil'),1)];
-	Y(:) = deal({y});
-	
-	simdata.Y = Y;
-	simdata.X = X_truth;
-	simdata.X_noise;
-	simdata.sigma = sigma;
-	simdata.StartDate = date;
-	simparams.StartDate = date;
+        for i=1:6
+            subplot(2,3,i);
+            imagesc(X_truth{i})
+        end
+    end
+    
+    %% Identify Active Voxels by Subject
+    ActiveVoxels = cell2mat(cellfun(@any,simdata.X_truth,'Unif',0));
 end
-	%% Define Groups
-	a = 1:simparams.groupshift:(simparams.nvoxels-simparams.groupsize+1);    % group start ind
-	b = (simparams.groupsize):simparams.groupshift:simparams.nvoxels;        % group end ind
-	ngroups = uint32(((simparams.nvoxels-simparams.groupsize)/simparams.groupshift)+1);
-	G = cell(ngroups,1);
-	for i=1:ngroups
-		G{i} = a(i):b(i);
-	end
-	clear a b;
 
-	%% Replicate, and create group indexes (for SOS Lasso)
-	[RepIndex, groups, group_arr] = define_rep_space(G);
-	
-	simdata.G = G;
-	simdata.replication_index = replication_index;
-	simdata.groups = groups;
-	simdata.group_arr;
 
 %% SUB-FUNCTIONS
-function X_truth = define_data(simparams);
+function [X_truth,Y] = define_data(simparams)
 % DEFINE_DATA Sub-function to soslasso_sim_setup
 %
 % See also:
 % SOSLASSO_SIM_HELP>DATA_TYPES
 
 	X_truth = cell(simparams.nsubjects,1);
+    [X_truth{:}] = deal(zeros(simparams.ntrials,simparams.nvoxels));
+    ani_trial_end = idivide(simparams.ntrials,2,'floor');
+    art_trial_beg = ani_trial_end + 1;
+    
+    %% Create target indexes
+	Y = cell(simparams.nsubjects,1);
+	y = [ones(idivide(simparams.ntrials,2,'floor'),1),-ones(idivide(simparams.ntrials,2,'ceil'),1)];
+	Y(:) = deal({y});
+    
+    a = 1:simparams.groupshift:(simparams.nvoxels-simparams.groupsize+1); % group start ind
+    b = (simparams.groupsize):simparams.groupshift:simparams.nvoxels; % group end ind
+    ngroups = length(a);
+    G = cell(ngroups,1);
+    for i=1:ngroups
+        G{i} = a(i):b(i);
+    end
+    clear a b;
+    
 	switch simparams.DataType 
 		case 'Same Sparse Groups'
 			active_groups = uint32(randperm(ngroups,simparams.nactgroups));
 		
-			if simparams.Modular
+            if simparams.Modular
 				ani_groups = active_groups(1:idivide(simparams.nactgroups,2,'floor'));
 				art_groups = active_groups(idivide(simparams.nactgroups,2,'ceil'):end);
 				v_ani = unique(cell2mat(G(ani_groups))); % N.B. it is possible for ani and art
@@ -130,38 +117,33 @@ function X_truth = define_data(simparams);
 			else
 				v = unique(cell2mat(G(active_groups)));
 				N = uint32(length(v));
-				g_randperm = g(randperm(V));
+				v_randperm = v(randperm(N));
 				v_ani = v_randperm(1:idivide(N,2,'floor')); % N.B. ani and art
 				v_art = v_randperm(idivide(N,2,'ceil'):N);  % voxels will never overlap 
-			end
+            end
 		
 			N_ani = uint32(length(v_ani));
 			N_art = uint32(length(v_art));
 		
-			for i = 1:simparams.nsubjects
-				X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
-
+            for i = 1:simparams.nsubjects
 				% Animal Loop (first half of trials)
-				for j=1:idivide(simparams.ntrials,2,'floor');
+                for j=1:ani_trial_end;
 					temp = uint32(randperm(N_ani,simparams.nactvoxels));
-					active_voxels = g_ani(temp);
+					active_voxels = v_ani(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
+                end
 				% Artifact Loop (second half of trials)
-				for j=idivide(simparams.ntrials,2,'ceil'):simparams.ntrials;
+                for j=art_trial_beg:simparams.ntrials;
 					temp = uint32(randperm(N_art,simparams.nactvoxels));
-					active_voxels = g_art(temp);
+					active_voxels = v_art(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
-			end
-			if VERBOSE
-				disp(active_groups);
-			end
-
+                end
+            end
+            
 		case 'Shifted Sparse Groups' 
 			active_groups = uint32(randperm(ngroups,simparams.nactgroups));
 		
-			for i = 1:simparams.nsubjects
+            for i = 1:simparams.nsubjects
 				step_size = 2;
 				max_steps = idivide(simparams.groupsize,simparams.groupshift*step_size,'floor');
 				n_steps = randi(max_steps);
@@ -169,53 +151,47 @@ function X_truth = define_data(simparams);
 				shift = n_steps * step_size * direction;
 				active_groups = mod(active_groups + shift,ngroups) + 1;
 					 
-				if simparams.Modular
+                if simparams.Modular
 					ani_groups_end  = idivide(simparams.nactgroups,2,'floor');
-					art_groups_beg = idivide(simparams.nactgroups,2,'ceil')
+					art_groups_beg = idivide(simparams.nactgroups,2,'ceil');
 					ani_groups = active_groups(1:ani_groups_end);
 					art_groups = active_groups(art_groups_beg:end);
 					v_ani = unique(cell2mat(G(ani_groups))); % N.B. it is possible for ani and art
 					v_art = unique(cell2mat(G(art_groups))); % voxels to overlap, whenever groups  
 															 % overlap.
-				else
+                else
 					v = unique(cell2mat(G(active_groups)));
 					N = uint32(length(v));
-					g_randperm = g(randperm(V));
+					v_randperm = v(randperm(N));
 					v_ani = v_randperm(1:idivide(N,2,'floor')); % N.B. ani and art
 					v_art = v_randperm(idivide(N,2,'ceil'):N);  % voxels will never overlap 
-				end
+                end
 					
 				N_ani = uint32(length(v_ani));
 				N_art = uint32(length(v_art));
 
 				% Make X_truth
-				ani_trial_end = idivide(simparams.ntrials,2,'floor');
-				art_trial_beg = idivide(simparams.ntrials,2,'ceil');
-				X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
-				% Animal Loop (first half of trials)
-				for j=1:ani_trial_end;
+       			% Animal Loop (first half of trials)
+                for j=1:ani_trial_end;
 					temp = uint32(randperm(N_ani,simparams.nactvoxels));
 					active_voxels = g_ani(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
+                end
 				% Artifact Loop (second half of trials)
-				for j=idivide(art_trial_start:simparams.ntrials;
+                for j=art_trial_beg:simparams.ntrials;
 					temp = uint32(randperm(N_art,simparams.nactvoxels));
 					active_voxels = g_art(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
-			end
-			if VERBOSE
-				disp(active_groups);
-			end
+                end
+            end
  
 		case 'Different Sparse Groups'
-			for i = 1:simparams.nsubjects
+            for i = 1:simparams.nsubjects
 				active_groups = uint32(randperm(ngroups,simparams.nactgroups));
 					 
 				if simparams.Modular
-					ani_groups_end  = idivide(simparams.nactgroups,2,'floor');
-					art_groups_beg = idivide(simparams.nactgroups,2,'ceil')
+					ani_groups_end = idivide(simparams.nactgroups,2,'floor');
+					art_groups_beg = idivide(simparams.nactgroups,2,'ceil');
 					ani_groups = active_groups(1:ani_groups_end);
 					art_groups = active_groups(art_groups_beg:end);
 					v_ani = unique(cell2mat(G(ani_groups))); % N.B. it is possible for ani and art
@@ -224,7 +200,7 @@ function X_truth = define_data(simparams);
 				else
 					v = unique(cell2mat(G(active_groups)));
 					N = uint32(length(v));
-					g_randperm = g(randperm(V));
+					v_randperm = v(randperm(N));
 					v_ani = v_randperm(1:idivide(N,2,'floor')); % N.B. ani and art
 					v_art = v_randperm(idivide(N,2,'ceil'):N);  % voxels will never overlap 
 				end
@@ -233,25 +209,19 @@ function X_truth = define_data(simparams);
 				N_art = uint32(length(v_art));
 		
 				% Make X_truth
-				ani_trial_end = idivide(simparams.ntrials,2,'floor');
-				art_trial_beg = idivide(simparams.ntrials,2,'ceil');
-				X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
 				% Animal Loop (first half of trials)
-				for j=1:ani_trial_end;
+                for j=1:ani_trial_end;
 					temp = uint32(randperm(N_ani,simparams.nactvoxels));
 					active_voxels = g_ani(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
+                end
 				% Artifact Loop (second half of trials)
-				for j=idivide(art_trial_start:simparams.ntrials;
+                for j=art_trial_start:simparams.ntrials;
 					temp = uint32(randperm(N_art,simparams.nactvoxels));
 					active_voxels = g_art(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
-			end
-			if VERBOSE
-				disp(active_groups);
-			end
+                end
+            end
 	
 		case 'Identical No Groups' % Cannot be modular
 			active_groups = uint32(randperm(ngroups,simparams.nactgroups));
@@ -263,26 +233,23 @@ function X_truth = define_data(simparams);
 
 			N_ani = uint32(length(v_ani));
 			N_art = uint32(length(v_art));
+            
 
-			for i = 1:simparams.nsubjects
+            for i = 1:simparams.nsubjects
 				% Make X_truth
-				X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
 				% Animal Loop (first half of trials)
-				for j=1:ani_trial_end;
+                for j=1:ani_trial_end;
 					temp = uint32(randperm(N_ani,simparams.nactvoxels));
 					active_voxels = v_ani(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
+                end
 				% Artifact Loop (second half of trials)
-				for j=idivide(art_trial_start:simparams.ntrials;
+                for j=art_trial_start:simparams.ntrials;
 					temp = uint32(randperm(N_art,simparams.nactvoxels));
 					active_voxels = v_art(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
-			end
-			if VERBOSE
-				disp(active_groups);
-			end
+                end
+            end
 	
 		case 'Different No Groups'
 			active_groups = uint32(randperm(ngroups,simparams.nactgroups));
@@ -293,44 +260,24 @@ function X_truth = define_data(simparams);
 			N_ani = idivide(N,2,'floor');
 			N_art = N - N_ani;
 
-			for i = 1:simparams.nsubjects
+            for i = 1:simparams.nsubjects
 				v_ani = v_randperm(1:idivide(N,2,'floor')); % N.B. ani and art
 				v_art = v_randperm(idivide(N,2,'ceil'):N);  % voxels will never overlap 
 
 				% Make X_truth
 				X_truth{i} = zeros(simparams.ntrials,simparams.nvoxels);
 				% Animal Loop (first half of trials)
-				for j=1:ani_trial_end;
+                for j=1:ani_trial_end;
 					temp = uint32(randperm(N_ani,simparams.nactvoxels));
 					active_voxels = v_ani(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
+                end
 				% Artifact Loop (second half of trials)
-				for j=idivide(art_trial_start:simparams.ntrials;
+                for j=art_trial_start:simparams.ntrials;
 					temp = uint32(randperm(N_art,simparams.nactvoxels));
 					active_voxels = v_art(temp);
 					X_truth{i}(j,active_voxels) = 1;
-				end
-			end
-			if VERBOSE
-				disp(active_groups);
-			end
-	end
-end
-
-
-function [N,v_ani,v_art] = modular()
-	if simparams.Modular
-		ani_groups = active_groups(1:idivide(simparams.nactgroups,2,'floor'));
-		art_groups = active_groups(idivide(simparams.nactgroups,2,'ceil'):end);
-		g_ani = unique(cell2mat(G(ani_groups))); % N.B. it is possible for ani and art
-		g_art = unique(cell2mat(G(art_groups))); % voxels to overlap, whenever groups  
-												 % overlap.
-	else
-		v = unique(cell2mat(G(active_groups)));
-		V = uint32(length(v));
-		g_randperm = g(randperm(V));
-		g_ani = g_randperm(1:idivide(V,2,'floor')); % N.B. ani and art
-		g_art = g_randperm(idivide(V,2,'ceil'):V);  % voxels will never overlap 
+                end
+            end
 	end
 end
