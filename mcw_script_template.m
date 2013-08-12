@@ -14,6 +14,7 @@ addpath(genpath('~/mcw-data'))
 addpath(genpath('~/mcw-soslasso')) 
 
 %% Set parameters
+params.lamset       = 100;
 params.lamset       = 10:20:190;
 params.classify     = true;
 params.numcvs       = uint32(4);
