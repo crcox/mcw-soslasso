@@ -46,7 +46,7 @@
 %   Least_Lasso, init_opts
 
 %% Code starts here
-function [W, C, funcVal] = Logistic_Lasso(X, Y, rho1, subset, opts)
+function [W, C, funcVal] = Logistic_Lasso(X, Y, rho1, opts)
 
 if nargin <3
     error('\n Inputs: X, Y, and rho1 should be specified!\n');
@@ -237,11 +237,11 @@ C = Czp;
         lossValVect = zeros (1 , task_num);
         if opts.pFlag
             parfor i = 1:task_num
-                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}(:,subset), Y{i}(:,subset));
+                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}, Y{i} );
             end
         else
             for i = 1:task_num
-                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}(:,subset), Y{i}(:,subset));
+                [ grad_W(:, i), grad_C(:, i), lossValVect(:, i)] = unit_grad_eval( W(:, i), C(i), X{i}, Y{i} );
             end
         end
         grad_W = grad_W + rho_L2 * 2 * W;
@@ -256,11 +256,11 @@ C = Czp;
         funcVal = 0;
         if opts.pFlag
             parfor i = 1: task_num
-          s      funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}(:,subset), Y{i}(:,subset));
+                funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}, Y{i} );
             end
         else
             for i = 1: task_num
-                funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}(:,subset), Y{i}(:,subset));
+                funcVal = funcVal + unit_funcVal_eval( W(:, i), C(i), X{i}, Y{i} );
             end
         end
         % here when computing function value we do not include
