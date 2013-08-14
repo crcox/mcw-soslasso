@@ -44,10 +44,13 @@ simparams = soslasso_sim_setup();
 
 %% Generate X_truth and G (for grouping)
 [simparams, X_truth, Y] = soslasso_sim_setup(simparams);
+save('simsetup.mat','simparams','X_truth','Y');
 
 %% Setup data for SOSLasso
-a = 1:simparams.groupshift:(simparams.nvoxels-simparams.groupsize+1); % group start ind
-b = (simparams.groupsize):simparams.groupshift:simparams.nvoxels; % group end ind
+GroupSize  = 32;
+GroupShift = 64;
+a = 1:GroupShift:(simparams.nvoxels-GroupSize+1); % group start ind
+b = GroupSize:GroupShift:simparams.nvoxels; % group end ind
 G = cell(length(a),1);
 for i=1:length(a)
     G{i} = a(i):b(i);
@@ -59,10 +62,11 @@ sosdata.G = G;
 sosdata.RepIndex = RepIndex;
 sosdata.groups = groups;
 sosdata.group_arr = group_arr;
+save('sosdata.mat','sosdata');
 
 %% Bury signal in gaussian noise
 sigma = 0.5;
 X = cellfun(@(x) x + randn(size(x))*sigma, X_truth, 'Unif', 0);
 
 %% Recover Signal
-simresults = soslasso_sim_recoversignal;
+[soslasso,lasso,univariate] = soslasso_sim_recoversignal;
