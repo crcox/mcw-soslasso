@@ -132,6 +132,7 @@ for lamind = 1:numlambda
 end
 Betahat = sparse(Betahat);
 save('recovery.mat','Betahat','C');
+
 %% Compute D-Prime for all CV runs.
 % Betahat is subjects * cv * lambda, populated in that order.
 N = numpersons*numcvs*numlambda;
@@ -139,7 +140,7 @@ scores = zeros(numsamples,N);
 
 try
     for i = 1:numpersons
-        scores(:,i:numpersons:N) = bsxfun(@plus,X{i} * Betahat(:,i:numpersons:N), C);
+        scores(:,i:numpersons:N) = bsxfun(@plus,X{i} * Betahat(:,i:numpersons:N), C(1:numpersons:N));
     end
 catch ME
     save('recovery.mat','Betahat','C');
@@ -175,14 +176,11 @@ fprintf('\n ALL CV DONE \n')
 %% PICK THE BEST REGULARIZATION PARAMETER AND RELEARN MODEL
 [~,lamax] = max(mean(reshape(cv_test.DPrime,numcvs,numlambda)));
 lam = lamset(lamax);  % pick the lambda that minimzes the CV error
-test = CVBlocks(:,5);
+test = FinalTestBlock;
 train = ~test;
 trainX = cellfun(@(x) x(train,:),X,'Unif',0);
 trainY = cellfun(@(y) y(train,:),Y,'Unif',0);
 
-if ((whatmethod==3)||(whatmethod==4))
-    [RepIndex, groups, group_arr] = definerepspace(G);
-end
 switch whatmethod
     case 1 %lasso
         if classify==1
@@ -221,7 +219,7 @@ Betahat = sparse(Betahat);
 %% TEST MODEL PERFORMANCE ON TEST SET
 scores = zeros(numsamples,numpersons);
 for i = 1:numpersons
-    scores(:,i) = bsxfun(@plus,X{i} * Betahat(:,i),C);
+    scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C(i) );
 end
 prediction = scores(:)>0;
 truth = cell2mat(Y) > 0;

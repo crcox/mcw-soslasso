@@ -43,7 +43,7 @@ simparams = soslasso_sim_setup();
 % soslasso_sim_help
 
 %% Generate X_truth and G (for grouping)
-[simparams, X_truth, Y] = soslasso_sim_setup(simparams);
+[~, X_truth, Y, ActiveVoxels] = soslasso_sim_setup(simparams);
 
 %% Setup data for SOSLasso
 a = 1:simparams.groupshift:(simparams.nvoxels-simparams.groupsize+1); % group start ind
@@ -65,4 +65,4 @@ sigma = 0.5;
 X = cellfun(@(x) x + randn(size(x))*sigma, X_truth, 'Unif', 0);
 
 %% Recover Signal
-simresults = soslasso_sim_recoversignal;
+simresults = soslasso_sim_recoversignal(X,Y,ActiveVoxels);
