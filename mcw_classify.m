@@ -63,7 +63,6 @@ end
 Betahat = zeros(numvoxels,numpersons*numcvs*numlambda);
 C = zeros(1,numpersons*numcvs*numlambda);
 ix     = uint32(0);
-cv_set = uint32(1:numcvs);
 
 for lamind = 1:numlambda
     lam = lamset(lamind);
