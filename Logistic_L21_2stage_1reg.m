@@ -70,7 +70,7 @@ else
 end
 
 task_num  = length (X);
-dimension = size(X{1}(RepIndex,:), 1);
+dimension = size(RepIndex,2);
 funcVal = [];
 
 %initialize a starting point

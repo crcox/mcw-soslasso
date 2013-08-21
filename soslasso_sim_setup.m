@@ -92,7 +92,7 @@ function [X_truth,Y] = define_data(simparams)
     
     %% Create target indexes
 	Y = cell(simparams.nsubjects,1);
-	y = [ones(idivide(simparams.ntrials,2,'floor'),1),-ones(idivide(simparams.ntrials,2,'ceil'),1)];
+	y = [ones(idivide(simparams.ntrials,2,'floor'),1);-ones(idivide(simparams.ntrials,2,'ceil'),1)];
 	Y(:) = deal({y});
     
     a = 1:simparams.groupshift:(simparams.nvoxels-simparams.groupsize+1); % group start ind
