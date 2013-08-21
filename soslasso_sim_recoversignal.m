@@ -1,5 +1,5 @@
-function [soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxels,lambda,varargin)
-    if nargin > 2
+function [soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxels,lambda,sosdata,varargin)
+    if nargin > 5
         if islogical(varargin{1})
             VERBOSE = varargin{1};
         else
@@ -10,7 +10,7 @@ function [soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxe
     end
     
     %% SOSLASSO
-    [Betahat,C] = soslasso_solve(simdata,soslasso_params);
+    [Betahat,C] = soslasso_solve(X,Y,lambda,sosdata);
     [dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,'Overall',true);
     soslasso.Betahat = Betahat;
     soslasso.C = C;
@@ -18,7 +18,7 @@ function [soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxe
     soslasso.counts = counts;
     
     %% LASSO
-    [Betahat,C] = lasso_solve(simdata,sosdata);
+    [Betahat,C] = lasso_solve(X,Y,lambda);
     [dp,counts] = lasso_evaluate(ActiveVoxels,Betahat,'Overall',true);
     lasso.Betahat = Betahat;
     lasso.C = C;
@@ -26,9 +26,9 @@ function [soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxe
     lasso.counts = counts;
 
     %% Univarite (FDR corrected)
-	[h,p] = univariate_solve(simdata,sosdata,'Overall',true);
+	[h,p] = univariate_solve(X,Y,'Overall',true);
     [dp,counts] = univariate_evaluate(ActiveVoxels,h);
-    univariate.Betahat = Betahat;
+    univariate.h = h;
     univariate.C = C;
     univariate.dp = dp;
     univariate.counts = counts;
@@ -38,8 +38,8 @@ end
 
 %% SUB-FUNCTIONS
 %% SOSLasso
-function [Betahat,C] = soslasso_solve(simdata,soslasso_params)
-	[Betahat.soslasso,C.soslasso] = overlap_2stage(1,Y,X, ...
+function [Betahat,C] = soslasso_solve(X,Y,lambda,sosdata)
+	[Betahat,C] = overlap_2stage(1,Y,X, ...
 		sosdata.G,sosdata.RepIndex,sosdata.group_arr,sosdata.groups,lambda);
 end
 
@@ -68,7 +68,7 @@ end
 %% Univariate
 function [h,p] = univariate_solve(X,Y,varargin)
 	P = length(X);
-	T = size(X{i},1);
+	T = size(X{1},1);
 	N = size(X{1},2);
 	ani = Y{1}>0;
 	if Overall
@@ -82,10 +82,11 @@ function [h,p] = univariate_solve(X,Y,varargin)
 	else
 		[p,h] = deal(zeros(N,P));
 		for i=1:P
-			[~,p(:,i)] = ttest2(X{i}(ani,:},X{i}(~ani,:});
+			[~,p(:,i)] = ttest2(X{i}(ani,:),X{i}(~ani,:));
 			h(:,i) = fdr_bh(p);
 		end
 	end
+end
 
 function [dp,counts] = univariate_evaluate(ActiveVoxels,h,varargin)
 	[dp,counts] = dprime(ActiveVoxels',h);

@@ -74,7 +74,7 @@ function [simparams,X_truth,Y,ActiveVoxels] = soslasso_sim_setup(varargin)
     end
     
     %% Identify Active Voxels by Subject
-    ActiveVoxels = cell2mat(cellfun(@any,simdata.X_truth,'Unif',0));
+    ActiveVoxels = cell2mat(cellfun(@any,X_truth,'Unif',0));
 end
 
 
@@ -92,7 +92,7 @@ function [X_truth,Y] = define_data(simparams)
     
     %% Create target indexes
 	Y = cell(simparams.nsubjects,1);
-	y = [ones(idivide(simparams.ntrials,2,'floor'),1),-ones(idivide(simparams.ntrials,2,'ceil'),1)];
+	y = [ones(idivide(simparams.ntrials,2,'floor'),1);-ones(idivide(simparams.ntrials,2,'ceil'),1)];
 	Y(:) = deal({y});
     
     a = 1:simparams.groupshift:(simparams.nvoxels-simparams.groupsize+1); % group start ind
