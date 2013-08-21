@@ -71,7 +71,7 @@ function [simparams,X_truth,Y,ActiveVoxels] = soslasso_sim_setup(varargin)
             subplot(2,3,i);
             imagesc(X_truth{i})
         end
-    end
+	end
     
     %% Identify Active Voxels by Subject
     ActiveVoxels = cell2mat(cellfun(@any,X_truth,'Unif',0));

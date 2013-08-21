@@ -47,8 +47,8 @@ simparams = soslasso_sim_setup();
 save('simsetup.mat','simparams','X_truth','Y');
 
 %% Setup data for SOSLasso
-GroupSize  = 32;
-GroupShift = 64;
+GroupSize  = 64;
+GroupShift = 32;
 a = 1:GroupShift:(simparams.nvoxels-GroupSize+1); % group start ind
 b = GroupSize:GroupShift:simparams.nvoxels; % group end ind
 G = cell(length(a),1);
@@ -68,5 +68,11 @@ save('sosdata.mat','sosdata');
 sigma = 0.5;
 X = cellfun(@(x) x + randn(size(x))*sigma, X_truth, 'Unif', 0);
 
+%% Define lambda
+lambda = 0.1;
+
+%% Identify Active Voxels by Subjects
+ActiveVoxels = cell2mat(cellfun(@any,X_truth, 'Unif', 0));
+
 %% Recover Signal
-[soslasso,lasso,univariate] = soslasso_sim_recoversignal;
+[soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxels,lambda,sosdata);

@@ -62,7 +62,7 @@ function [Betahat,C] = lasso_solve(X,Y,lambda)
 end
 
 function [dp,counts] = lasso_evaluate(ActiveVoxels,Betahat,varargin)
-	[dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,C,varargin);
+	[dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,varargin{:});
 end
 
 %% Univariate
@@ -71,19 +71,20 @@ function [h,p] = univariate_solve(X,Y,varargin)
 	T = size(X{1},1);
 	N = size(X{1},2);
 	ani = Y{1}>0;
+    Overall = varargin{2};
 	if Overall
-		[MEAN_X] = zeros(P,N);
+		[MEAN_X] = zeros(T,N);
 		for i=1:P
 			MEAN_X = X{i} + MEAN_X;
 		end
 		MEAN_X = MEAN_X ./ P;
 		[~,p] = ttest2(MEAN_X(ani,:),MEAN_X(~ani,:));
-		h = fdr_bh(p);
+		h = fdr_bh(p)';
 	else
 		[p,h] = deal(zeros(N,P));
 		for i=1:P
 			[~,p(:,i)] = ttest2(X{i}(ani,:),X{i}(~ani,:));
-			h(:,i) = fdr_bh(p);
+			h(:,i) = fdr_bh(p)';
 		end
 	end
 end
