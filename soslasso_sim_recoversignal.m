@@ -28,7 +28,7 @@ function [soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxe
     %% Univarite (FDR corrected)
 	[h,p] = univariate_solve(simdata,sosdata,'Overall',true);
     [dp,counts] = univariate_evaluate(ActiveVoxels,h);
-    univariate.Betahat = Betahat;
+    univariate.h = h;
     univariate.C = C;
     univariate.dp = dp;
     univariate.counts = counts;
