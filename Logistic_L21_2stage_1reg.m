@@ -133,6 +133,8 @@ while iter < opts.maxIter
     % compute function value and gradients of the search point
     [gWs, gCs, Fs ]  = gradVal_eval(Ws, Cs);
     
+    Fs
+    
     % the Armijo Goldstein line search scheme
     while true
         Wzp = SGL_overlap_shrink(Ws - gWs/gamma,group_arr,groups,rho1/gamma,rho1/gamma);
