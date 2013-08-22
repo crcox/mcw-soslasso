@@ -60,97 +60,96 @@ end
 
 
 %% Cross Validation Module
-Betahat = zeros(numvoxels,numpersons*numcvs*numlambda);
-C = zeros(1,numpersons*numcvs*numlambda);
-ix     = uint32(0);
+if params.RecoveryMode > 0
+    load('recovery.mat','Betahat','C');
 
-for lamind = 1:numlambda
-    lam = lamset(lamind);
-    for cv = 1:numcvs;
-        % Compute indexes for storing the betahats
-        a  = uint32(ix * numpersons + 1);
-        ix = uint32(1 + ix);
-        b  = uint32(ix * numpersons); 
-        
-        CVTestBlock = CVBlocks(:,cv);
-        train = ~CVTestBlock & ~FinalTestBlock;
-        
-        [trainX, trainY] = deal(cell(numpersons,1));
-        for person = 1:numpersons
-            trainX{person} = X{person}(train,:);
-            trainY{person} = Y{person}(train);
-        end
+else
+    Betahat = zeros(numvoxels,numpersons*numcvs*numlambda);
+    C = zeros(1,numpersons*numcvs*numlambda);
+    ix     = uint32(0);
     
-        switch whatmethod
-            case 1 %lasso
-                if classify==1
-                    [Betahat,~,~] = Logistic_Lasso(trainX, trainY, lam);
-                else
-                    [Betahat,~] = Least_Lasso(trainX, trainY, lam);
-                end
-                
-            case 2
-                if classify==1
-                    [Betahat,~,~] = Logistic_L21(trainX, trainY, lam);
-                else
-                    [Betahat,~] = Least_L21(trainX, trainY, lam);
-                end
-            case 3
-                % lam is the regularizer, rho = reg. for L1 term
-                try
+    for lamind = 1:numlambda
+        lam = lamset(lamind);
+        for cv = 1:numcvs;
+            % Compute indexes for storing the betahats
+            a  = uint32(ix * numpersons + 1);
+            ix = uint32(1 + ix);
+            b  = uint32(ix * numpersons); 
+            
+            CVTestBlock = CVBlocks(:,cv);
+            train = ~CVTestBlock & ~FinalTestBlock;
+            
+            [trainX, trainY] = deal(cell(numpersons,1));
+            for person = 1:numpersons
+                trainX{person} = X{person}(train,:);
+                trainY{person} = Y{person}(train);
+            end
+        
+            switch whatmethod
+                case 1 %lasso
                     if classify==1
-                        [tempB,tempC] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
-                        Betahat(:,a:b) = tempB;
-                        C(a:b) = tempC; 
+                        [Betahat,~,~] = Logistic_Lasso(trainX, trainY, lam);
                     else
-                        [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
+                        [Betahat,~] = Least_Lasso(trainX, trainY, lam);
                     end
-                catch ME
-                    save('recovery.mat','Betahat','C');
-                    rethrow(ME);
-                end
                     
-                
-            case 4
-                if classify==1
-                    [Betahat,~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
-                else
-                    [Betahat,~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
-                end
-                
-            otherwise
-                error('method not implemented \n')
-                
+                case 2
+                    if classify==1
+                        [Betahat,~,~] = Logistic_L21(trainX, trainY, lam);
+                    else
+                        [Betahat,~] = Least_L21(trainX, trainY, lam);
+                    end
+                case 3
+                    % lam is the regularizer, rho = reg. for L1 term
+                    try
+                        if classify==1
+                            [tempB,tempC] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
+                            Betahat(:,a:b) = tempB;
+                            C(a:b) = tempC; 
+                        else
+                            [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
+                        end
+                    catch ME
+                        save('recovery.mat','Betahat','C');
+                        rethrow(ME);
+                    end
+                        
+                    
+                case 4
+                    if classify==1
+                        [Betahat,~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
+                    else
+                        [Betahat,~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
+                    end
+                    
+                otherwise
+                    error('method not implemented \n')
+                    
+            end
+            
+            fprintf('.')
+            
+            %cross validate
+            fprintf(2,'%d CV Run done \n',cv);
         end
-        
-        fprintf('.')
-        
-        %cross validate
-        fprintf(2,'%d CV Run done \n',cv);
     end
+    Betahat = sparse(Betahat);
+    save('recovery.mat','Betahat','C');
 end
-Betahat = sparse(Betahat);
-save('recovery.mat','Betahat','C');
 
 %% Compute D-Prime for all CV runs.
 % Betahat is subjects * cv * lambda, populated in that order.
 N = numpersons*numcvs*numlambda;
 scores = zeros(numsamples,N);
 
-try
-    for i = 1:numpersons
-        scores(:,i:numpersons:N) = bsxfun(@plus,X{i} * Betahat(:,i:numpersons:N), C(1:numpersons:N));
-    end
-catch ME
-    save('recovery.mat','Betahat','C');
-    rethrow(ME);
+for i = 1:numpersons
+    scores(:,i:numpersons:N) = bsxfun(@plus,X{i} * Betahat(:,i:numpersons:N), C(1:numpersons:N));
 end
 
 prediction = reshape(scores>0,numsamples*numpersons,numcvs*numlambda);
 truth = cell2mat(Y) > 0;
 TEST  = repmat(CVBlocks(:,1:numcvs),numpersons,numlambda);
-TRAIN = ~TEST;
-TRAIN(CVBlocks(:,5),:) = false; % omit holdout data.
+TRAIN = ~TEST & ~repmat(FinalTestBlock,numpersons,numcvs*numlambda);
 
 cv_test.HIT = sum(bsxfun(@and,bsxfun(@and, truth, prediction),TEST));
 cv_test.HR  = cv_test.HIT ./ sum(TEST(truth,:));
@@ -180,45 +179,51 @@ train = ~test;
 trainX = cellfun(@(x) x(train,:),X,'Unif',0);
 trainY = cellfun(@(y) y(train,:),Y,'Unif',0);
 
-switch whatmethod
-    case 1 %lasso
-        if classify==1
-            [Betahat,~,~] = Logistic_Lasso(trainX, trainY, lam);
-        else
-            [Betahat,~] = Least_Lasso(trainX, trainY, lam);
-        end
-        
-    case 2
-        if classify==1
-            [Betahat,~,~] = Logistic_L21(trainX, trainY, lam);
-        else
-            [Betahat,~] = Least_L21(trainX, trainY, lam);
-        end
-    case 3
-        if classify==1
-            [Betahat,C] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
-        else
-            [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
-        end
-        
-    case 4
-        if classify==1
-            [Betahat,~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
-        else
-            [Betahat,~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
-        end
-        
-    otherwise
-        error('method not implemented \n')
-        
+if params.RecoveryMode > 1
+    load('recovery_FINAL.mat','Betahat','C');
+
+else
+    switch whatmethod
+        case 1 %lasso
+            if classify==1
+                [Betahat,~,~] = Logistic_Lasso(trainX, trainY, lam);
+            else
+                [Betahat,~] = Least_Lasso(trainX, trainY, lam);
+            end
+            
+        case 2
+            if classify==1
+                [Betahat,~,~] = Logistic_L21(trainX, trainY, lam);
+            else
+                [Betahat,~] = Least_L21(trainX, trainY, lam);
+            end
+        case 3
+            if classify==1
+                [Betahat,C] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
+            else
+                [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
+            end
+            
+        case 4
+            if classify==1
+                [Betahat,~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
+            else
+                [Betahat,~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
+            end
+            
+        otherwise
+            error('method not implemented \n')
+            
+    end
+    % Betahat is the final model
+    Betahat = sparse(Betahat);
+    save('recovery_FINAL.mat','Betahat','C');
 end
-% Betahat is the final model
-Betahat = sparse(Betahat);
 
 %% TEST MODEL PERFORMANCE ON TEST SET
 scores = zeros(numsamples,numpersons);
 for i = 1:numpersons
-    scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C(i) );
+    scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C );
 end
 prediction = scores(:)>0;
 truth = cell2mat(Y) > 0;
