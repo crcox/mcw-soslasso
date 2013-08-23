@@ -1,4 +1,4 @@
-function [final_test,final_train,cv_test,cv_train] = mcw_classify(Y,X,GroupInfo,metadata,params)
+function [final_test,final_train,cv_test,cv_train] = mcw_classify_par(Y,X,GroupInfo,metadata,params)
 % MCW_CLASSIFY Solves optimization problem to discover active voxels
 %
 %  USAGE:
@@ -66,16 +66,18 @@ if params.RecoveryMode > 0
 else
     Betahat = zeros(numvoxels,numpersons*numcvs*numlambda);
     C = zeros(1,numpersons*numcvs*numlambda);
-    ix     = uint32(0);
+    a = 1:numpersons*numcvs:( numpersons*numcvs*numlambda );
+    b = a+(numpersons*numcvs)-1;
     
+    if matlabpool('size') == 0;
+        matlabpool open local 4;
+    end
     for lamind = 1:numlambda
+        [BetahatCV,CCV] = deal(cell(1,numcvs));
         lam = lamset(lamind);
-        for cv = 1:numcvs;
+        parfor cv = 1:numcvs;
             % Compute indexes for storing the betahats
-            a  = uint32(ix * numpersons + 1);
-            ix = uint32(1 + ix);
-            b  = uint32(ix * numpersons); 
-            
+
             CVTestBlock = CVBlocks(:,cv);
             train = ~CVTestBlock & ~FinalTestBlock;
             
@@ -84,57 +86,30 @@ else
                 trainX{person} = X{person}(train,:);
                 trainY{person} = Y{person}(train);
             end
-        
-            switch whatmethod
-                case 1 %lasso
-                    if classify==1
-                        [Betahat,~,~] = Logistic_Lasso(trainX, trainY, lam);
-                    else
-                        [Betahat,~] = Least_Lasso(trainX, trainY, lam);
-                    end
-                    
-                case 2
-                    if classify==1
-                        [Betahat,~,~] = Logistic_L21(trainX, trainY, lam);
-                    else
-                        [Betahat,~] = Least_L21(trainX, trainY, lam);
-                    end
-                case 3
-                    % lam is the regularizer, rho = reg. for L1 term
-                    try
-                        if classify==1
-                            [tempB,tempC] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
-                            Betahat(:,a:b) = tempB;
-                            C(a:b) = tempC; 
-                        else
-                            [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
-                        end
-                    catch ME
-                        save('recovery.mat','Betahat','C');
-                        rethrow(ME);
-                    end
-                        
-                    
-                case 4
-                    if classify==1
-                        [Betahat,~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
-                    else
-                        [Betahat,~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
-                    end
-                    
-                otherwise
-                    error('method not implemented \n')
-                    
+            
+            if classify==1
+                [BetahatCV{cv},CCV{cv}] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
+            else
+                [BetahatCV{cv},CCV{cv}] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
             end
-            
-            fprintf('.')
-            
+            fprintf('.')    
             %cross validate
             fprintf(2,'%d CV Run done \n',cv);
         end
+        Betahat(:,a(lamind):b(lamind)) = cell2mat(BetahatCV);
+        C(:,a(lamind):b(lamind)) = cell2mat(CCV);
+        save('recovery.mat','Betahat','C');
     end
+    matlabpool close;
     Betahat = sparse(Betahat);
     save('recovery.mat','Betahat','C');
+    if params.CVMode == 2;
+        filename = sprintf('CV_%.2f_%.2d.mat',lamset(1),lamset(end));
+        save(filename,'Betahat','C');
+        fprintf('CV MODULE COMPLETE\nRESULTS SAVED TO %s.\n\n',filename);
+        [final_test,final_train,cv_test,cv_train] = false;
+        return
+    end
 end
 
 %% Compute D-Prime for all CV runs.
@@ -272,7 +247,7 @@ switch whatmethod
         filename_method = 'OGLASSO';
         filename = sprintf(fmt,filename_type, filename_script, filename_method, filename_timestamp);     
 end
-save(filename,'Betahat','X','Y','final_train','final_test');
+save(filename,'Betahat','C','X','Y','final_train','final_test');
 fprintf('DATA SAVED \n')
 
 end
