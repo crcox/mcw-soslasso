@@ -96,13 +96,14 @@ else
             %cross validate
             fprintf(2,'%d CV Run done \n',cv);
         end
-        Betahat(:,a(lamind):b(lamind)) = cell2mat(BetahatCV);
-        C(:,a(lamind):b(lamind)) = cell2mat(CCV);
-        save('recovery.mat','Betahat','C');
+        %Betahat(:,a(lamind):b(lamind)) = cell2mat(BetahatCV);
+        %C(:,a(lamind):b(lamind)) = cell2mat(CCV);
+        filename = sprintf('recovery_%d.mat',lamind);
+        save(filename,'BetahatCV','CCV');
     end
     matlabpool close;
-    Betahat = sparse(Betahat);
-    save('recovery.mat','Betahat','C');
+%    Betahat = sparse(Betahat);
+%    save('recovery.mat','Betahat','C');
     if params.CVMode == 2;
         filename = sprintf('CV_%.2f_%.2d.mat',lamset(1),lamset(end));
         save(filename,'Betahat','C');
@@ -200,10 +201,10 @@ scores = zeros(numsamples,numpersons);
 for i = 1:numpersons
     scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C );
 end
-prediction = scores(:)>0;
-truth = cell2mat(Y) > 0;
-TEST  = repmat(test,numpersons,1);
-TRAIN = repmat(train,numpersons,1);
+prediction = scores>0;
+truth = Y{1} > 0;
+TEST  = FinalTestBlock;
+TRAIN = train;
 final_test.HIT = sum(bsxfun(@and,bsxfun(@and, truth, prediction),TEST));
 final_test.HR  = final_test.HIT ./ sum(TEST(truth,:));
 final_test.FA  = sum(bsxfun(@and,bsxfun(@and, ~truth, prediction),TEST));
@@ -211,6 +212,7 @@ final_test.FAR = final_test.HIT ./ sum(TEST(~truth,:));
 final_test.FAR(final_test.FAR==0) = .0005;final_test.FAR(final_test.FAR==1) = .9995;
 final_test.HR(final_test.HR==0)   = .0005;final_test.HR(final_test.HR==1)   = .9995;
 final_test.DPrime = norminv(final_test.HR) - norminv(final_test.FAR);
+final_test.Error = sum(~bsxfun(@eq,));
 
 final_train.HIT = sum(bsxfun(@and,bsxfun(@and, truth, prediction),TRAIN));
 final_train.HR  = final_train.HIT ./ sum(TRAIN(truth,:));
@@ -247,7 +249,7 @@ switch whatmethod
         filename_method = 'OGLASSO';
         filename = sprintf(fmt,filename_type, filename_script, filename_method, filename_timestamp);     
 end
-save(filename,'Betahat','C','X','Y','final_train','final_test');
+save(filename,'Betahat','C','X','Y','final_train','final_test','lamax');
 fprintf('DATA SAVED \n')
 
 end
