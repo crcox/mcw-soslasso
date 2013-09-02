@@ -69,7 +69,7 @@ else
     rho_L2 = 0;
 end
 
-task_num  = length (X);
+task_num  = length(X);
 dimension = size(RepIndex,2);
 funcVal = [];
 

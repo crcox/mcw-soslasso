@@ -96,10 +96,14 @@ else
             %cross validate
             fprintf(2,'%d CV Run done \n',cv);
         end
-        %Betahat(:,a(lamind):b(lamind)) = cell2mat(BetahatCV);
-        %C(:,a(lamind):b(lamind)) = cell2mat(CCV);
         filename = sprintf('recovery_%d.mat',lamind);
+        BetahatCV = cellfun(@sparse, BetahatCV, 'unif', false);
         save(filename,'BetahatCV','CCV');
+        Betahat(:,a(lamind):b(lamind)) = cell2mat(BetahatCV);
+        temp = cell2mat(CCV);
+%         temp = repmat(temp,numpersons,1);
+%         temp = reshape(temp,1,[]);
+        C(:,a(lamind):b(lamind)) = temp;
     end
     matlabpool close;
 %    Betahat = sparse(Betahat);
@@ -108,7 +112,7 @@ else
         filename = sprintf('CV_%.2f_%.2d.mat',lamset(1),lamset(end));
         save(filename,'Betahat','C');
         fprintf('CV MODULE COMPLETE\nRESULTS SAVED TO %s.\n\n',filename);
-        [final_test,final_train,cv_test,cv_train] = false;
+        [final_test,final_train,cv_test,cv_train] = deal(false);
         return
     end
 end
@@ -199,7 +203,7 @@ end
 %% TEST MODEL PERFORMANCE ON TEST SET
 scores = zeros(numsamples,numpersons);
 for i = 1:numpersons
-    scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C );
+    scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C(1) );
 end
 prediction = scores>0;
 truth = Y{1} > 0;
@@ -212,7 +216,6 @@ final_test.FAR = final_test.HIT ./ sum(TEST(~truth,:));
 final_test.FAR(final_test.FAR==0) = .0005;final_test.FAR(final_test.FAR==1) = .9995;
 final_test.HR(final_test.HR==0)   = .0005;final_test.HR(final_test.HR==1)   = .9995;
 final_test.DPrime = norminv(final_test.HR) - norminv(final_test.FAR);
-final_test.Error = sum(~bsxfun(@eq,));
 
 final_train.HIT = sum(bsxfun(@and,bsxfun(@and, truth, prediction),TRAIN));
 final_train.HR  = final_train.HIT ./ sum(TRAIN(truth,:));
