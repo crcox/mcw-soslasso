@@ -72,7 +72,7 @@ else
     if matlabpool('size') == 0;
         matlabpool open local 4;
     end
-    for lamind = 1:numlambda
+    for lamind = 1 %:numlambda
         [BetahatCV,CCV] = deal(cell(1,numcvs));
         lam = lamset(lamind);
         parfor cv = 1:numcvs;
@@ -99,17 +99,18 @@ else
         filename = sprintf('recovery_%d.mat',lamind);
         BetahatCV = cellfun(@sparse, BetahatCV, 'unif', false);
         save(filename,'BetahatCV','CCV');
-        Betahat(:,a(lamind):b(lamind)) = cell2mat(BetahatCV);
-        temp = cell2mat(CCV);
-%         temp = repmat(temp,numpersons,1);
-%         temp = reshape(temp,1,[]);
-        C(:,a(lamind):b(lamind)) = temp;
     end
+
     matlabpool close;
-%    Betahat = sparse(Betahat);
+
+    Betahat = sparse(cell2mat(BetahatCV));
+    temp = cell2mat(CCV);
+    temp = repmat(temp,numpersons,1);
+    C = temp(:)';
+    
 %    save('recovery.mat','Betahat','C');
     if params.CVMode == 2;
-        filename = sprintf('CV_%.2f_%.2d.mat',lamset(1),lamset(end));
+        filename = sprintf('CV_%.2f_%.2f.mat',lamset(1),lamset(end));
         save(filename,'Betahat','C');
         fprintf('CV MODULE COMPLETE\nRESULTS SAVED TO %s.\n\n',filename);
         [final_test,final_train,cv_test,cv_train] = deal(false);
@@ -119,8 +120,9 @@ end
 
 %% Compute D-Prime for all CV runs.
 % Betahat is subjects * cv * lambda, populated in that order.
-N = numpersons*numcvs*numlambda;
+N = size(Betahat,2);
 scores = zeros(numsamples,N);
+numlambda = N / (numpersons * numcvs);
 
 for i = 1:numpersons
     scores(:,i:numpersons:N) = bsxfun(@plus,X{i} * Betahat(:,i:numpersons:N), C(1:numpersons:N));
@@ -148,7 +150,7 @@ cv_train.HR(cv_train.HR==0)   = .0005;cv_train.HR(cv_train.HR==1)   = .9995;
 cv_train.DPrime = norminv(cv_train.HR) - norminv(cv_train.FAR);
 
 notes = ' Counts and DPrime are over all subjects at once. \n Betahat is numpersons*numcvs*numlambda, in that order.\n';
-save('DIAGNOSTICS.mat','cv_test','cv_train','Betahat','numpersons','numcvs','lamset','notes');
+save('DIAGNOSTICS.mat','cv_test','cv_train','Betahat','C','numpersons','numcvs','lamset','notes');
 fprintf('\n ALL CV DONE \n')
 
 %% PICK THE BEST REGULARIZATION PARAMETER AND RELEARN MODEL
@@ -186,7 +188,7 @@ else
             
         case 4
             if classify==1
-                [Betahat,~] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
+                [Betahat,C] = overlap_1stage(1,trainY,Xo,trainX,G,group_arr,lam);
             else
                 [Betahat,~] = overlap_1stage(0,trainY,Xo,trainX,G,group_arr,lam);
             end
@@ -212,7 +214,7 @@ TRAIN = train;
 final_test.HIT = sum(bsxfun(@and,bsxfun(@and, truth, prediction),TEST));
 final_test.HR  = final_test.HIT ./ sum(TEST(truth,:));
 final_test.FA  = sum(bsxfun(@and,bsxfun(@and, ~truth, prediction),TEST));
-final_test.FAR = final_test.HIT ./ sum(TEST(~truth,:));
+final_test.FAR = final_test.FA ./ sum(TEST(~truth,:));
 final_test.FAR(final_test.FAR==0) = .0005;final_test.FAR(final_test.FAR==1) = .9995;
 final_test.HR(final_test.HR==0)   = .0005;final_test.HR(final_test.HR==1)   = .9995;
 final_test.DPrime = norminv(final_test.HR) - norminv(final_test.FAR);
@@ -220,7 +222,7 @@ final_test.DPrime = norminv(final_test.HR) - norminv(final_test.FAR);
 final_train.HIT = sum(bsxfun(@and,bsxfun(@and, truth, prediction),TRAIN));
 final_train.HR  = final_train.HIT ./ sum(TRAIN(truth,:));
 final_train.FA  = sum(bsxfun(@and,bsxfun(@and, ~truth, prediction),TRAIN));
-final_train.FAR = final_train.HIT ./ sum(TRAIN(~truth,:));
+final_train.FAR = final_train.FA ./ sum(TRAIN(~truth,:));
 final_train.FAR(final_train.FAR==0) = .0005;final_train.FAR(final_train.FAR==1) = .9995;
 final_train.HR(final_train.HR==0)   = .0005;final_train.HR(final_train.HR==1)   = .9995;
 final_train.DPrime = norminv(final_train.HR) - norminv(final_train.FAR);

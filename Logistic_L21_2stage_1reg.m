@@ -48,7 +48,7 @@
 %  Least_L21, init_opts
 
 %% Code starts here
-function [W, C, funcVal] = Logistic_L21_2stage_1reg(X, Y, rho1,RepIndex,group_arr,groups)
+function [W, C, funcVal, niter] = Logistic_L21_2stage_1reg(X, Y, rho1,RepIndex,group_arr,groups)
 
 if nargin <3
     error('\n Inputs: X, Y, rho1, should be specified!\n');
@@ -133,7 +133,7 @@ while iter < opts.maxIter
     % compute function value and gradients of the search point
     [gWs, gCs, Fs ]  = gradVal_eval(Ws, Cs);
     
-    Fs
+%     Fs
     
     % the Armijo Goldstein line search scheme
     while true
@@ -208,7 +208,7 @@ while iter < opts.maxIter
     t = 0.5 * (1 + (1+ 4 * t^2)^0.5);
     
 end
-
+niter = iter;
 W = Wzp;
 C = Czp;
 

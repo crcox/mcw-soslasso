@@ -1,37 +1,35 @@
-function [soslasso,lasso,univariate] = soslasso_sim_recoversignal(X,Y,ActiveVoxels,lambda,sosdata,varargin)
-    if nargin > 5
-        if islogical(varargin{1})
-            VERBOSE = varargin{1};
-        else
-            error('soslasso_sim_recoversignal:Verbose flag needs to be true or false');
-        end
-    else
-        VERBOSE = false;
-    end
-    
-    %% SOSLASSO
-    [Betahat,C] = soslasso_solve(X,Y,lambda,sosdata);
-    [dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,'Overall',true);
-    soslasso.Betahat = Betahat;
-    soslasso.C = C;
-    soslasso.dp = dp;
-    soslasso.counts = counts;
-    
-    %% LASSO
-    [Betahat,C] = lasso_solve(X,Y,lambda);
-    [dp,counts] = lasso_evaluate(ActiveVoxels,Betahat,'Overall',true);
-    lasso.Betahat = Betahat;
-    lasso.C = C;
-    lasso.dp = dp;
-    lasso.counts = counts;
+function varargout = soslasso_sim_recoversignal(X,Y,ActiveVoxels,method,varargin)
 
-    %% Univarite (FDR corrected)
-	[h,p] = univariate_solve(X,Y,'Overall',true);
-    [dp,counts] = univariate_evaluate(ActiveVoxels,h);
-    univariate.h = h;
-    univariate.C = C;
-    univariate.dp = dp;
-    univariate.counts = counts;
+    switch method
+        case 'univariate'
+            %% Univarite (FDR corrected)
+            [h,p] = univariate_solve(X,Y,'Overall',true);
+            [dp,counts] = univariate_evaluate(ActiveVoxels,h);
+            varargout{1} = h;
+            varargout{2} = NaN;
+            varargout{3} = dp;
+            varargout{4} = counts;
+
+        case 'lasso'
+            lambda = varargin{1};
+            [Betahat,C] = lasso_solve(X,Y,lambda);
+            [dp,counts] = lasso_evaluate(ActiveVoxels,Betahat,'Overall',true);
+            varargout{1} = Betahat;
+            varargout{2} = C;
+            varargout{3} = dp;
+            varargout{4} = counts;
+
+        case 'soslasso'
+            lambda = varargin{1};
+            sosdata = varargin{2};
+            [Betahat,C] = soslasso_solve(X,Y,lambda,sosdata);
+            [dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,'Overall',true);
+            varargout{1} = Betahat;
+            varargout{2} = C;
+            varargout{3} = dp;
+            varargout{4} = counts;
+    end
+
 end
 
 
@@ -39,8 +37,11 @@ end
 %% SUB-FUNCTIONS
 %% SOSLasso
 function [Betahat,C] = soslasso_solve(X,Y,lambda,sosdata)
-	[Betahat,C] = overlap_2stage(1,Y,X, ...
+	[Betahat,C,niter] = overlap_2stage(1,Y,X, ...
 		sosdata.G,sosdata.RepIndex,sosdata.group_arr,sosdata.groups,lambda);
+    fprintf('\n')
+    fprintf('niter: %d',niter)
+    fprintf('\n')
 end
 
 function [dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,varargin)
@@ -48,11 +49,12 @@ function [dp,counts] = soslasso_evaluate(ActiveVoxels,Betahat,varargin)
 		error('soslasso_evaluate: Too many input arguments.')
 	end
 	Overall = varargin{2};
-	nzbeta = abs(Betahat)>0;
+	nzbeta = Betahat>0;
 	if Overall
-		[dp,counts] = dprime(any(ActiveVoxels)',any(nzbeta,2));
+		[dp_all,counts] = dprime(ActiveVoxels,any(nzbeta,2));
+        dp = mean(dp_all);
 	else
-		[dp,counts] = dprime(ActiveVoxels',nzbeta);
+		[dp,counts] = dprime(ActiveVoxels,nzbeta);
 	end
 end
 
@@ -78,19 +80,22 @@ function [h,p] = univariate_solve(X,Y,varargin)
 			MEAN_X = X{i} + MEAN_X;
 		end
 		MEAN_X = MEAN_X ./ P;
-		[~,p] = ttest2(MEAN_X(ani,:),MEAN_X(~ani,:));
-		h = fdr_bh(p)';
+		[~,p,~,stats] = ttest2(MEAN_X(ani,:),MEAN_X(~ani,:));
+        t = stats.tstat;
+		h = all([fdr_bh(p);t>0])';
 	else
-		[p,h] = deal(zeros(N,P));
+		[p,h,t] = deal(zeros(N,P));
 		for i=1:P
-			[~,p(:,i)] = ttest2(X{i}(ani,:),X{i}(~ani,:));
-			h(:,i) = fdr_bh(p)';
+			[~,p(:,i),~,stats] = ttest2(X{i}(ani,:),X{i}(~ani,:));
+            t(:,i) = stats.tstat;
+			h(:,i) = all([fdr_bh(p);t>0])';
 		end
 	end
 end
 
 function [dp,counts] = univariate_evaluate(ActiveVoxels,h,varargin)
-	[dp,counts] = dprime(ActiveVoxels',h);
+	[dp_all,counts] = dprime(ActiveVoxels,h);
+    dp = mean(dp_all);
 end
 
 % In citing MALSAR in your papers, you can use the following:

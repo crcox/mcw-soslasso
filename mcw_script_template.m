@@ -31,7 +31,7 @@ params.MeanCenter   = true;
 params.NormVariance = false;
 params.Save         = false;
 
-params.RecoveryMode = 0;
+params.RecoveryMode = 1;
 % Recovery Modes:
 % 0: Run all optimization routines from scratch.
 % 1: load in prior Betahats and Cs from recovery.mat; skip CV module.

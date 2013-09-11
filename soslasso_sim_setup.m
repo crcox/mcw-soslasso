@@ -174,13 +174,13 @@ function [X_truth,Y] = define_data(simparams)
        			% Animal Loop (first half of trials)
                 for j=1:ani_trial_end;
 					temp = uint32(randperm(N_ani,simparams.nactvoxels));
-					active_voxels = g_ani(temp);
+					active_voxels = v_ani(temp);
 					X_truth{i}(j,active_voxels) = 1;
                 end
 				% Artifact Loop (second half of trials)
                 for j=art_trial_beg:simparams.ntrials;
 					temp = uint32(randperm(N_art,simparams.nactvoxels));
-					active_voxels = g_art(temp);
+					active_voxels = v_art(temp);
 					X_truth{i}(j,active_voxels) = 1;
                 end
             end
