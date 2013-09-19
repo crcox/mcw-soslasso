@@ -1,4 +1,4 @@
-function [Xhat,C,niter] = overlap_2stage(loss,Y,X,G,RepIndex,group_arr,groups,lambda)
+function [Xhat,C,niter,Wndb,Cndb] = overlap_2stage(loss,Y,X,G,RepIndex,group_arr,groups,lambda)
 
 % function to perform the overlapping SGL optimization, with both LS and LOGIT loss
 % INPUTS
@@ -25,6 +25,7 @@ function [Xhat,C,niter] = overlap_2stage(loss,Y,X,G,RepIndex,group_arr,groups,la
     else
         error('loss has to be 0 or 1 \n');
     end
+    
     % W is the output matrix
     %we now need to combine overlapping groups
     
@@ -51,12 +52,17 @@ function [Xhat,C,niter] = overlap_2stage(loss,Y,X,G,RepIndex,group_arr,groups,la
         end
         Xhat(t,:) = Xhat(t,:) + W(s,:);
     end
-    
+  
+    % The solution before debiasing.
+    Wndb = Xhat;
+    Cndb = C;
+
     %debias the solution using the X and Y and Xhat
     % Xnew = cell(T,1);
     inds = cell(T,1);
     temp = Xhat;
     Xhat = zeros(n,T);
+    C = zeros(1,T);
     % totinds =[];
     for ii = 1:T
         idx = find(temp(:,ii)~=0);
@@ -65,7 +71,7 @@ function [Xhat,C,niter] = overlap_2stage(loss,Y,X,G,RepIndex,group_arr,groups,la
             Xtemp = X{ii};
             Xtemp = Xtemp(:,idx);
             Xdeb{1} = Xtemp;
-            [Bhat, C, ~] = Logistic_Lasso(Xdeb, Y(1), 0);
+            [Bhat, C(ii), ~] = Logistic_Lasso(Xdeb, Y(1), 0);
             Xhat(idx,ii) = Bhat;
         end
     end

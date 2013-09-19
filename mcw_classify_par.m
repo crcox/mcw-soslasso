@@ -61,7 +61,11 @@ end
 
 %% Cross Validation Module
 if params.RecoveryMode > 0
-    load('recovery.mat','Betahat','C');
+	if params.Debias == true
+    	load('recovery.mat','Betahat','C');
+	else
+    	load('recovery.mat','Betahat_NDB','C_NDB');
+	end
 
 else
     Betahat = zeros(numvoxels,numpersons*numcvs*numlambda);
@@ -73,7 +77,7 @@ else
         matlabpool open local 4;
     end
     for lamind = 1 %:numlambda
-        [BetahatCV,CCV] = deal(cell(1,numcvs));
+        [BetahatCV,CCV,BetahatCV_NDB,CCV_NDB] = deal(cell(1,numcvs));
         lam = lamset(lamind);
         parfor cv = 1:numcvs;
             % Compute indexes for storing the betahats
@@ -88,7 +92,7 @@ else
             end
             
             if classify==1
-                [BetahatCV{cv},CCV{cv}] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
+                [BetahatCV{cv},CCV{cv},niter,BetahatCV_NDB{cv},CCV_NDB{cv}] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
             else
                 [BetahatCV{cv},CCV{cv}] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
             end
@@ -98,26 +102,31 @@ else
         end
         filename = sprintf('recovery_%d.mat',lamind);
         BetahatCV = cellfun(@sparse, BetahatCV, 'unif', false);
-        save(filename,'BetahatCV','CCV');
+        save(filename,'BetahatCV','CCV','BetahatCV_NDB','CCV_NDB');
     end
 
     matlabpool close;
 
     Betahat = sparse(cell2mat(BetahatCV));
+    Betahat_NDB = sparse(cell2mat(BetahatCV_NDB));
     temp = cell2mat(CCV);
     temp = repmat(temp,numpersons,1);
     C = temp(:)';
+    C_NDB = cell2mat(CCV_NDB);
     
 %    save('recovery.mat','Betahat','C');
     if params.CVMode == 2;
         filename = sprintf('CV_%.2f_%.2f.mat',lamset(1),lamset(end));
-        save(filename,'Betahat','C');
+        save(filename,'Betahat','C','Betahat_NDB','C_NDB');
         fprintf('CV MODULE COMPLETE\nRESULTS SAVED TO %s.\n\n',filename);
         [final_test,final_train,cv_test,cv_train] = deal(false);
         return
     end
 end
-
+if params.Debias == false
+	Betahat = Betahat_NDB;
+	C = C_NDB;
+end
 %% Compute D-Prime for all CV runs.
 % Betahat is subjects * cv * lambda, populated in that order.
 N = size(Betahat,2);
@@ -150,7 +159,7 @@ cv_train.HR(cv_train.HR==0)   = .0005;cv_train.HR(cv_train.HR==1)   = .9995;
 cv_train.DPrime = norminv(cv_train.HR) - norminv(cv_train.FAR);
 
 notes = ' Counts and DPrime are over all subjects at once. \n Betahat is numpersons*numcvs*numlambda, in that order.\n';
-save('DIAGNOSTICS.mat','cv_test','cv_train','Betahat','C','numpersons','numcvs','lamset','notes');
+save('DIAGNOSTICS.mat','cv_test','cv_train','Betahat','C','Betahat_NDB','C_NDB','numpersons','numcvs','lamset','notes');
 fprintf('\n ALL CV DONE \n')
 
 %% PICK THE BEST REGULARIZATION PARAMETER AND RELEARN MODEL
@@ -162,7 +171,11 @@ trainX = cellfun(@(x) x(train,:),X,'Unif',0);
 trainY = cellfun(@(y) y(train,:),Y,'Unif',0);
 
 if params.RecoveryMode > 1
-    load('recovery_FINAL.mat','Betahat','C');
+	if params.Debias == true
+    	load('recovery_FINAL.mat','Betahat','C');
+	else
+    	load('recovery_FINAL.mat','Betahat_NDB','C_NDB');
+	end
 
 else
     switch whatmethod
@@ -181,7 +194,7 @@ else
             end
         case 3
             if classify==1
-                [Betahat,C] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
+                [Betahat,C,niter,Betahat_NDB,C_NDB] = overlap_2stage(1,trainY,trainX,G,RepIndex,group_arr,groups, lam);
             else
                 [Betahat,~] = overlap_2stage(0,trainY,trainX,G,RepIndex,group_arr,lam);
             end
@@ -199,13 +212,17 @@ else
     end
     % Betahat is the final model
     Betahat = sparse(Betahat);
-    save('recovery_FINAL.mat','Betahat','C');
+    save('recovery_FINAL.mat','Betahat','C','Betahat_NDB','C_NDB');
+end
+if params.Debias == false
+	Betahat = Betahat_NDB;
+	C = C_NDB;
 end
 
 %% TEST MODEL PERFORMANCE ON TEST SET
 scores = zeros(numsamples,numpersons);
 for i = 1:numpersons
-    scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C(1) );
+    scores(:,i) = bsxfun( @plus,X{i} * Betahat(:,i),C(i) );
 end
 prediction = scores>0;
 truth = Y{1} > 0;
